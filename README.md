@@ -1,2 +1,2 @@
 # genroutes
-Generate CRUD routes for your FastAPI project, reduce boilerplate code, accelerate development of your FastAPI backend!
+Generate CRUD routes for FastAPI projects, reduce boilerplate code, accelerate development of FastAPI backend!
