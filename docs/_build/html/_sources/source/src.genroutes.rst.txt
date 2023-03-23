@@ -1,0 +1,29 @@
+src.genroutes package
+=====================
+
+Submodules
+----------
+
+src.genroutes.crud module
+-------------------------
+
+.. automodule:: src.genroutes.crud
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+src.genroutes.generic\_routes module
+------------------------------------
+
+.. automodule:: src.genroutes.generic_routes
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: src.genroutes
+   :members:
+   :undoc-members:
+   :show-inheritance:
