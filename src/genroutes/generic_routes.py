@@ -7,7 +7,6 @@ from pydantic import BaseModel
 from sqlalchemy.orm import sessionmaker
 
 
-
 class HttpMethods(Enum):
     """HTTP Methods defining access modes for gen routes"""
 
@@ -109,6 +108,7 @@ def create_any(db: Session, model, data):
 
 def _method_name(name):
     """Rename methods with decorator"""
+
     def decorator(func):
         func.__name__ = name
         return func
@@ -171,7 +171,6 @@ class Routes:
 
     """
 
-
     def __init__(self, session: sessionmaker, auth_route: str | None = None):
         self.session = session
         self.oauth2_scheme = None
@@ -189,7 +188,7 @@ class Routes:
             :param model: SQLAlchemy model representing data table structure.
             :param schema: corresponding pydantic schema for model.
             :param schema_create: pydantic schema to be used for data creation (``POST`` HTTPMethod).
-            :param \**kwargs: see below.
+            :param kwargs: see below.
 
             :Keyword Arguments:.
 
@@ -273,7 +272,6 @@ class Routes:
 
         return router
 
-
     def add_router(self, app, path: str, model,
                    schema: BaseModel, schema_create: BaseModel, **kwargs):
         """Generate router and add to FastAPI app.
@@ -283,7 +281,7 @@ class Routes:
             :param model: SQLAlchemy model representing data table structure.
             :param schema: corresponding pydantic schema for model.
             :param schema_create: pydantic schema to be used for data creation (``POST`` HTTPMethod).
-            :param \**kwargs: see below.
+            :param kwargs: see below.
 
             :Keyword Arguments:.
 
@@ -292,8 +290,5 @@ class Routes:
 
         """
 
-        router = self.get_router(path, model, schema, schema_create, ** kwargs)
+        router = self.get_router(path, model, schema, schema_create, **kwargs)
         app.include_router(router=router)
-
-
-
