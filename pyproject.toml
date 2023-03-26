@@ -32,7 +32,8 @@
     test = [
         "pytest >=7.0.0",
         "pytest-cov",
-        "mock-alchemy>=0.2.5"
+        "mock-alchemy>=0.2.5",
+        "httpx >=0.23.3"
     ]
     doc = ["sphinx", "sphinx-rtd-theme"]
 
