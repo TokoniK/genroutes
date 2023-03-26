@@ -63,9 +63,9 @@ def init():
 
 host = '127.0.0.1'
 port = 8001
-def run_server():
-    init()
-    uvicorn.run(app=app,host=host,port=port)
+# def run_server():
+    # init()
+    # uvicorn.run(app=app,host=host,port=port)
 
 @pytest.fixture()
 def setup_teardown():
