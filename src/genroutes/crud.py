@@ -38,7 +38,10 @@ def update_by_attribute(db: Session, model, data: BaseModel, attribute, value) -
     if len(rows.all()) == 0:
         return []
 
-    rows.update(data.dict(exclude_unset=True), synchronize_session="fetch")
+    if not isinstance(data, dict):
+        data = data.dict(exclude_unset=True)
+
+    rows.update(data, synchronize_session="fetch")
     db.commit()
     result_list = []
     db_row_objects = db.query(model).filter_by(**filter).all()

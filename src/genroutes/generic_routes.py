@@ -1,10 +1,12 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Response, status, Body
 from fastapi.security import OAuth2PasswordBearer
 from . import crud
 from sqlalchemy.orm import Session
 from enum import Enum
 from pydantic import BaseModel
 from sqlalchemy.orm import sessionmaker
+import string
+from typing import Annotated
 
 
 class HttpMethods(Enum):
@@ -14,11 +16,12 @@ class HttpMethods(Enum):
     GET_BY_ATTRIBUTE = 2
     POST = 3
     PUT = 4
-    DELETE = 5
-    ALL_METHODS = [GET, GET_BY_ATTRIBUTE, POST, PUT, DELETE]
-    NO_UPDATE = [GET, GET_BY_ATTRIBUTE, POST, DELETE]
-    NO_CREATE = [GET, GET_BY_ATTRIBUTE, PUT, DELETE]
-    NO_DELETE = [GET, GET_BY_ATTRIBUTE, POST, PUT]
+    PATCH = 5
+    DELETE = 6
+    ALL_METHODS = [GET, GET_BY_ATTRIBUTE, POST, PUT, PATCH, DELETE]
+    NO_UPDATE = [GET, GET_BY_ATTRIBUTE, POST, PATCH, DELETE]
+    NO_CREATE = [GET, GET_BY_ATTRIBUTE, PUT, PATCH, DELETE]
+    NO_DELETE = [GET, GET_BY_ATTRIBUTE, POST, PUT, PATCH]
     READ_ONLY = [GET, GET_BY_ATTRIBUTE]
 
 
@@ -48,6 +51,18 @@ def create(db: Session, model, key_attribute, data):
 #     return updated
 
 def update(db: Session, model, data, attribute, value):
+    """Update all records of model from datasource filtered by 'attribute = value' """
+
+    obj = crud.get_by_attribute(db, model, attribute, value)
+
+    if obj is None:
+        raise HTTPException(status_code=401, detail="data not found")
+
+    updated = crud.update_by_attribute(db, model, data, attribute, value)
+    return updated
+
+
+def patch(db: Session, model, data, attribute, value):
     """Update all records of model from datasource filtered by 'attribute = value' """
 
     obj = crud.get_by_attribute(db, model, attribute, value)
@@ -224,51 +239,119 @@ class Routes:
 
         @_method_name('create_' + model.__name__.lower())
         def create(data: schema_create, db: Session = Depends(get_db)
-                   , token=Depends(self.oauth2_scheme), model=Depends(get_model)):
+                   , token=Depends(self.oauth2_scheme)):
+            return create_any(db, model, data)
+
+        @_method_name('create_' + model.__name__.lower())
+        def create_na(data: schema_create, db: Session = Depends(get_db)):
             return create_any(db, model, data)
 
         # @self.router.get("", response_model=list[schema], response_model_exclude=response_model_exclude)
         @_method_name('get_' + model.__name__.lower())
-        def get(db: Session = Depends(get_db), token=Depends(self.oauth2_scheme), model=Depends(get_model)):
+        def get(db: Session = Depends(get_db), token=Depends(self.oauth2_scheme)):
+            return read(db, model)
+
+        @_method_name('get_' + model.__name__.lower())
+        def get_na(db: Session = Depends(get_db)):
             return read(db, model)
 
         # @self.router.get("/{attribute}/{value}", response_model=list[schema]
         #                   , response_model_exclude=response_model_exclude)
         @_method_name('get_' + model.__name__.lower() + "_by_attribute")
-        def get_by_attribute(attribute, value, db: Session = Depends(get_db), token=Depends(self.oauth2_scheme),
-                             model=Depends(get_model)):
+        def get_by_attribute(attribute, value, db: Session = Depends(get_db), token=Depends(self.oauth2_scheme)):
+            return read_by_attribute(db, model, attribute, value)
+
+        @_method_name('get_' + model.__name__.lower() + "_by_attribute")
+        def get_by_attribute_na(attribute, value, db: Session = Depends(get_db)):
             return read_by_attribute(db, model, attribute, value)
 
         # @self.router.put("/{id}", response_model=schema, response_model_exclude=response_model_exclude)
         @_method_name('update_' + model.__name__.lower())
-        def update_data(id, data: schema, db: Session = Depends(get_db), token=Depends(self.oauth2_scheme),
-                        model=Depends(get_model)):
+        def update_data(id, data: schema, db: Session = Depends(get_db), token=Depends(self.oauth2_scheme)
+                        ):
             return update(db, model, data, id_field, id)
+
+        @_method_name('update_' + model.__name__.lower())
+        def update_data_na(id, data: schema, db: Session = Depends(get_db)):
+            return update(db, model, data, id_field, id)
+
+        @_method_name('patch_' + model.__name__.lower())
+        def patch_data(id, data: schema | Annotated[dict, Body], db: Session = Depends(get_db),
+                       token=Depends(self.oauth2_scheme)):
+            return patch_data_na(id, data, db)
+
+        @_method_name('patch_' + model.__name__.lower())
+        def patch_data_na(id, data: schema | Annotated[dict, Body], db: Session = Depends(get_db)):
+            invalid = []
+            for x in data.keys():
+                if x not in schema.__fields__.keys():
+                    invalid.append(x)
+
+            if len(invalid) > 0:
+                # print('Unsupported fields found: ' + (' ,'.join(invalid)))
+                raise HTTPException(status.HTTP_400_BAD_REQUEST
+                                    , detail='Unsupported fields found: ' + (' ,'.join(invalid)))
+
+            return patch(db, model, data, id_field, id)
 
         # @self.router.delete("/{id}")
         @_method_name('delete_' + model.__name__.lower())
         def delete_data(id, db: Session = Depends(get_db),
-                        token=Depends(self.oauth2_scheme), model=Depends(get_model)):
+                        token=Depends(self.oauth2_scheme)):
+            return delete(db, model, id_field, id)
+
+        @_method_name('delete_' + model.__name__.lower())
+        def delete_data_na(id, db: Session = Depends(get_db)):
             return delete(db, model, id_field, id)
 
         if HttpMethods.POST.value in access_mode:
-            router.add_api_route("", create, methods=["POST"]
+            router.add_api_route("", create if self.oauth2_scheme else create_na, methods=["POST"]
                                  , response_model=schema | dict | list[schema | dict]
-                                 , response_model_exclude=response_model_exclude)
+                                 , response_model_exclude=response_model_exclude
+                                 , tags=[string.capwords(model.__name__)])
         if HttpMethods.GET.value in access_mode:
-            router.add_api_route("", get, methods=["GET"]
+            router.add_api_route("", get if self.oauth2_scheme else get_na, methods=["GET"]
                                  , response_model=list[schema | dict]
-                                 , response_model_exclude=response_model_exclude)
+                                 , response_model_exclude=response_model_exclude
+                                 , tags=[string.capwords(model.__name__)])
         if HttpMethods.GET_BY_ATTRIBUTE.value in access_mode:
-            router.add_api_route("/{attribute}/{value}", get_by_attribute, methods=["GET"]
+            router.add_api_route("/{attribute}/{value}"
+                                 , get_by_attribute if self.oauth2_scheme else get_by_attribute_na
+                                 , methods=["GET"]
                                  , response_model=list[schema | dict]
-                                 , response_model_exclude=response_model_exclude)
+                                 , response_model_exclude=response_model_exclude
+                                 , tags=[string.capwords(model.__name__)])
         if HttpMethods.PUT.value in access_mode:
-            router.add_api_route("/{id}", update_data, methods=["PUT"]
+            router.add_api_route("/{id}", update_data if self.oauth2_scheme else update_data_na, methods=["PUT"]
                                  , response_model=list[schema | dict]
-                                 , response_model_exclude=response_model_exclude)
+                                 , response_model_exclude=response_model_exclude
+                                 , tags=[string.capwords(model.__name__)])
+        if HttpMethods.PATCH.value in access_mode:
+            router.add_api_route("/{id}", patch_data if self.oauth2_scheme else patch_data_na, methods=["PATCH"]
+                                 , response_model=list[schema | dict]
+                                 , response_model_exclude=response_model_exclude
+                                 , tags=[string.capwords(model.__name__)])
+
         if HttpMethods.DELETE.value in access_mode:
-            router.add_api_route("/{id}", delete_data, methods=["DELETE"])
+            router.add_api_route("/{id}", delete_data if self.oauth2_scheme else delete_data_na, methods=["DELETE"]
+                                 , tags=[string.capwords(model.__name__)])
+
+        @router.options("/")
+        def get_options(response: Response):
+            methods = set()
+            for route in router.routes:
+                if str(route.path).lower().startswith("/" + str(model.__name__.lower)):
+                    print(route.path)
+                    print(route.methods)
+                    for m in route.methods:
+                        methods.add(m)
+
+            allow = ','.join(methods)
+            response.headers["Allow"] = allow
+            # "OPTIONS, GET, HEAD, POST, PUT, DELETE"
+            response.headers["Access-Control-Allow-Methods"] = allow
+            # "OPTIONS, GET, HEAD, POST, PUT, DELETE"
+            return None
 
         return router
 
@@ -292,3 +375,33 @@ class Routes:
 
         router = self.get_router(path, model, schema, schema_create, **kwargs)
         app.include_router(router=router)
+
+    def add_options(self, app):
+
+        def get_options_na(endpoint, response: Response):
+            methods = set()
+            for route in app.routes:
+                if str(route.path).lower().startswith("/" + str(endpoint).lower()):
+                    print(route.path)
+                    print(route.methods)
+                    for m in route.methods:
+                        methods.add(m)
+
+            allow = ','.join(methods)
+            response.headers["Allow"] = allow
+            # "OPTIONS, GET, HEAD, POST, PUT, DELETE"
+            response.headers["Access-Control-Allow-Methods"] = allow
+            # "OPTIONS, GET, HEAD, POST, PUT, DELETE"
+            return None
+
+        def get_options(endpoint, response: Response, token=Depends(self.oauth2_scheme)):
+            return get_options_na(endpoint, response)
+
+        # @app.options("/{endpoint}")
+        app.add_api_route("/{endpoint}", get_options if self.oauth2_scheme else get_options_na, methods=["OPTIONS"]
+                          , tags=["Options"])
+
+
+
+
+
