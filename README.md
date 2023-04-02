@@ -7,7 +7,7 @@ Generate CRUD routes for FastAPI projects, reduce boilerplate code, accelerate d
 
 
 ## Description
-In order to build a webservice with FastAPI, some sections of code for defining endpoints needs to be repeated.  
+In order to build a webservice with FastAPI, some sections of code for defining api endpoints needs to be repeated.  
 Code repetition makes maintenance of such services more difficult.  
 genroutes helps address the issue of code repetition and also speeds up development of
 FastAPI projects, by allowing the developer to focus development efforts on areas that require creativity.  
