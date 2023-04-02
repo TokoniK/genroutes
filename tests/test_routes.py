@@ -8,6 +8,7 @@ from src.genroutes.generic_routes import Routes, HttpMethods
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import declarative_base
 from mock_alchemy.mocking import UnifiedAlchemyMagicMock
+from typing import Union
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 # # print(sys.path)
@@ -45,7 +46,7 @@ def init():
         password = Column("password_hash", String, nullable = False)
 
     class UserEntity(BaseModel):
-        id: int | None = None
+        id: Union[int, None] = None
         username : str
         email : str
         password : str

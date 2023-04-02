@@ -6,7 +6,7 @@ from enum import Enum
 from pydantic import BaseModel
 from sqlalchemy.orm import sessionmaker
 import string
-from typing import Annotated
+from typing import Annotated, Union
 
 
 class HttpMethods(Enum):
@@ -186,7 +186,7 @@ class Routes:
 
     """
 
-    def __init__(self, session: sessionmaker, auth_route: str | None = None):
+    def __init__(self, session: sessionmaker, auth_route: str = None):
         self.session = session
         self.oauth2_scheme = None
 
@@ -237,6 +237,7 @@ class Routes:
         def get_model():
             return model
 
+
         @_method_name('create_' + model.__name__.lower())
         def create(data: schema_create, db: Session = Depends(get_db)
                    , token=Depends(self.oauth2_scheme)):
@@ -276,12 +277,12 @@ class Routes:
             return update(db, model, data, id_field, id)
 
         @_method_name('patch_' + model.__name__.lower())
-        def patch_data(id, data: schema | Annotated[dict, Body], db: Session = Depends(get_db),
+        def patch_data(id, data: Union[schema, Annotated[dict, Body]], db: Session = Depends(get_db),
                        token=Depends(self.oauth2_scheme)):
             return patch_data_na(id, data, db)
 
         @_method_name('patch_' + model.__name__.lower())
-        def patch_data_na(id, data: schema | Annotated[dict, Body], db: Session = Depends(get_db)):
+        def patch_data_na(id, data: Union[schema, Annotated[dict, Body]], db: Session = Depends(get_db)):
             invalid = []
             for x in data.keys():
                 if x not in schema.__fields__.keys():
@@ -306,52 +307,35 @@ class Routes:
 
         if HttpMethods.POST.value in access_mode:
             router.add_api_route("", create if self.oauth2_scheme else create_na, methods=["POST"]
-                                 , response_model=schema | dict | list[schema | dict]
+                                 , response_model=Union[schema, dict, list[Union[schema, dict]]]
                                  , response_model_exclude=response_model_exclude
                                  , tags=[string.capwords(model.__name__)])
         if HttpMethods.GET.value in access_mode:
             router.add_api_route("", get if self.oauth2_scheme else get_na, methods=["GET"]
-                                 , response_model=list[schema | dict]
+                                 , response_model=list[Union[schema, dict]]
                                  , response_model_exclude=response_model_exclude
                                  , tags=[string.capwords(model.__name__)])
         if HttpMethods.GET_BY_ATTRIBUTE.value in access_mode:
             router.add_api_route("/{attribute}/{value}"
                                  , get_by_attribute if self.oauth2_scheme else get_by_attribute_na
                                  , methods=["GET"]
-                                 , response_model=list[schema | dict]
+                                 , response_model=list[Union[schema, dict]]
                                  , response_model_exclude=response_model_exclude
                                  , tags=[string.capwords(model.__name__)])
         if HttpMethods.PUT.value in access_mode:
             router.add_api_route("/{id}", update_data if self.oauth2_scheme else update_data_na, methods=["PUT"]
-                                 , response_model=list[schema | dict]
+                                 , response_model=list[Union[schema, dict]]
                                  , response_model_exclude=response_model_exclude
                                  , tags=[string.capwords(model.__name__)])
         if HttpMethods.PATCH.value in access_mode:
             router.add_api_route("/{id}", patch_data if self.oauth2_scheme else patch_data_na, methods=["PATCH"]
-                                 , response_model=list[schema | dict]
+                                 , response_model=list[Union[schema, dict]]
                                  , response_model_exclude=response_model_exclude
                                  , tags=[string.capwords(model.__name__)])
 
         if HttpMethods.DELETE.value in access_mode:
             router.add_api_route("/{id}", delete_data if self.oauth2_scheme else delete_data_na, methods=["DELETE"]
                                  , tags=[string.capwords(model.__name__)])
-
-        @router.options("/")
-        def get_options(response: Response):
-            methods = set()
-            for route in router.routes:
-                if str(route.path).lower().startswith("/" + str(model.__name__.lower)):
-                    print(route.path)
-                    print(route.methods)
-                    for m in route.methods:
-                        methods.add(m)
-
-            allow = ','.join(methods)
-            response.headers["Allow"] = allow
-            # "OPTIONS, GET, HEAD, POST, PUT, DELETE"
-            response.headers["Access-Control-Allow-Methods"] = allow
-            # "OPTIONS, GET, HEAD, POST, PUT, DELETE"
-            return None
 
         return router
 
