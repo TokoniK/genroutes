@@ -6,3 +6,4 @@ src/genroutes/__pycache__
 *.pyc
 .pytest_cache/
 /docs/_build/
+/sql_app.db
