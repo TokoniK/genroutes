@@ -249,11 +249,15 @@ class Routes:
 
         # @self.router.get("", response_model=list[schema], response_model_exclude=response_model_exclude)
         @_method_name('get_' + model.__name__.lower())
-        def get(db: Session = Depends(get_db), token=Depends(self.oauth2_scheme)):
+        def get(token=Depends(self.oauth2_scheme)):
+            """No authentication """
+            print('genroutes get event')
+            db: Session = Depends(get_db)
             return read(db, model)
 
         @_method_name('get_' + model.__name__.lower())
         def get_na(db: Session = Depends(get_db)):
+            """No authentication """
             return read(db, model)
 
         # @self.router.get("/{attribute}/{value}", response_model=list[schema]
@@ -283,6 +287,7 @@ class Routes:
 
         @_method_name('patch_' + model.__name__.lower())
         def patch_data_na(id, data: Union[schema, Annotated[dict, Body]], db: Session = Depends(get_db)):
+            """No authentication """
             invalid = []
             for x in data.keys():
                 if x not in schema.__fields__.keys():
