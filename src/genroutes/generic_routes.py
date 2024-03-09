@@ -213,7 +213,6 @@ class Routes:
             :return: router (``APIRouter``)
 
         """
-
         response_model_exclude: list = kwargs.get('response_exclude', None)
         access_mode: HttpMethods = kwargs.get('access_mode', HttpMethods.ALL_METHODS)
         id_field: str = kwargs.get('id_field', 'id')
@@ -237,59 +236,80 @@ class Routes:
         def get_model():
             return model
 
+        #region crud_methods
 
         @_method_name('create_' + model.__name__.lower())
-        def create(data: schema_create, db: Session = Depends(get_db)
+        def create(data: schema_create
                    , token=Depends(self.oauth2_scheme)):
+            # db: Session = Depends(get_db)
+            db = next(get_db())
             return create_any(db, model, data)
 
         @_method_name('create_' + model.__name__.lower())
-        def create_na(data: schema_create, db: Session = Depends(get_db)):
+        def create_na(data: schema_create):
+            """No authentication """
+            # db: Session = Depends(get_db)
+            db = next(get_db())
             return create_any(db, model, data)
 
         # @self.router.get("", response_model=list[schema], response_model_exclude=response_model_exclude)
         @_method_name('get_' + model.__name__.lower())
         def get(token=Depends(self.oauth2_scheme)):
-            """No authentication """
-            print('genroutes get event')
-            db: Session = Depends(get_db)
+            # db: Session = Depends(get_db)
+            db = next(get_db())
             return read(db, model)
 
         @_method_name('get_' + model.__name__.lower())
-        def get_na(db: Session = Depends(get_db)):
+        def get_na():
             """No authentication """
+            #db: Session = Depends(get_db)
+            db = next(get_db())
             return read(db, model)
 
         # @self.router.get("/{attribute}/{value}", response_model=list[schema]
         #                   , response_model_exclude=response_model_exclude)
         @_method_name('get_' + model.__name__.lower() + "_by_attribute")
-        def get_by_attribute(attribute, value, db: Session = Depends(get_db), token=Depends(self.oauth2_scheme)):
+        def get_by_attribute(attribute, value, token=Depends(self.oauth2_scheme)):
+            # db: Session = Depends(get_db)
+            db = next(get_db())
             return read_by_attribute(db, model, attribute, value)
 
         @_method_name('get_' + model.__name__.lower() + "_by_attribute")
-        def get_by_attribute_na(attribute, value, db: Session = Depends(get_db)):
+        def get_by_attribute_na(attribute, value):
+            """No authentication """
+            # db: Session = Depends(get_db)
+            db = next(get_db())
             return read_by_attribute(db, model, attribute, value)
 
         # @self.router.put("/{id}", response_model=schema, response_model_exclude=response_model_exclude)
         @_method_name('update_' + model.__name__.lower())
-        def update_data(id, data: schema, db: Session = Depends(get_db), token=Depends(self.oauth2_scheme)
+        def update_data(id, data: schema,  token=Depends(self.oauth2_scheme)
                         ):
+            # db: Session = Depends(get_db)
+            db = next(get_db())
             return update(db, model, data, id_field, id)
 
         @_method_name('update_' + model.__name__.lower())
-        def update_data_na(id, data: schema, db: Session = Depends(get_db)):
+        def update_data_na(id, data: schema):
+            """No authentication """
+            # db: Session = Depends(get_db)
+            db = next(get_db())
             return update(db, model, data, id_field, id)
 
         @_method_name('patch_' + model.__name__.lower())
-        def patch_data(id, data: Union[schema, Annotated[dict, Body]], db: Session = Depends(get_db),
+        def patch_data(id, data: Union[schema, Annotated[dict, Body]],
                        token=Depends(self.oauth2_scheme)):
+            # db: Session = Depends(get_db)
+            db = next(get_db())
             return patch_data_na(id, data, db)
 
         @_method_name('patch_' + model.__name__.lower())
-        def patch_data_na(id, data: Union[schema, Annotated[dict, Body]], db: Session = Depends(get_db)):
+        def patch_data_na(id, data: Union[schema, Annotated[dict, Body]]):
             """No authentication """
+            # db: Session = Depends(get_db)
+            db = next(get_db())
             invalid = []
-            for x in data.keys():
+            for x in dict(data).keys():
                 if x not in schema.__fields__.keys():
                     invalid.append(x)
 
@@ -302,13 +322,21 @@ class Routes:
 
         # @self.router.delete("/{id}")
         @_method_name('delete_' + model.__name__.lower())
-        def delete_data(id, db: Session = Depends(get_db),
+        def delete_data(id,
                         token=Depends(self.oauth2_scheme)):
+            # db: Session = Depends(get_db)
+            db = next(get_db())
             return delete(db, model, id_field, id)
 
+
         @_method_name('delete_' + model.__name__.lower())
-        def delete_data_na(id, db: Session = Depends(get_db)):
+        def delete_data_na(id):
+            """No authentication """
+            # db: Session = Depends(get_db)
+            db = next(get_db())
             return delete(db, model, id_field, id)
+
+        # endregion crud_methods
 
         if HttpMethods.POST.value in access_mode:
             router.add_api_route("", create if self.oauth2_scheme else create_na, methods=["POST"]
@@ -337,7 +365,6 @@ class Routes:
                                  , response_model=list[Union[schema, dict]]
                                  , response_model_exclude=response_model_exclude
                                  , tags=[string.capwords(model.__name__)])
-
         if HttpMethods.DELETE.value in access_mode:
             router.add_api_route("/{id}", delete_data if self.oauth2_scheme else delete_data_na, methods=["DELETE"]
                                  , tags=[string.capwords(model.__name__)])
