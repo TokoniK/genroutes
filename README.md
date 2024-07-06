@@ -33,7 +33,7 @@ Import Routes & HttpMethods into module
 ``from genroutes import Routes, HttpMethods``
 
 For instance, say your FastAPI project has an SQLAlchemy schema object ``User``, a pydantic model ``UserEntity``
-and a SQLAlchemy session object ``Session``.CRUD routes can be generated using the example below:
+and a SQLAlchemy session object ``Session``. CRUD routes can be generated using the example below:
 
 **main.py**
 ```
