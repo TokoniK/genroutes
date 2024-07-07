@@ -195,14 +195,14 @@ class Routes:
                 print(auth_route)
                 self.oauth2_scheme = OAuth2PasswordBearer(tokenUrl=auth_route)
 
-    def get_router(self, path: str, model,
-                   schema: BaseModel, schema_create: BaseModel, **kwargs):
+    def get_router(self, path: str, schema,
+                   model: BaseModel, model_create: BaseModel, **kwargs):
         """ Generate and return router.
 
             :param path: endpoint for routes.
-            :param model: SQLAlchemy model representing data table structure.
-            :param schema: corresponding pydantic schema for model.
-            :param schema_create: pydantic schema to be used for data creation (``POST`` HTTPMethod).
+            :param schema: SQLAlchemy model representing data table structure.
+            :param model: corresponding pydantic schema for model.
+            :param model_create: pydantic schema to be used for data creation (``POST`` HTTPMethod).
             :param kwargs: see below.
 
             :Keyword Arguments:.
@@ -234,83 +234,96 @@ class Routes:
                 db.close()
 
         def get_model():
-            return model
+            return schema
 
         #region crud_methods
 
-        @_method_name('create_' + model.__name__.lower())
-        def create(data: schema_create
+        @_method_name('create_' + schema.__name__.lower())
+        def create(data: model_create
                    , token=Depends(self.oauth2_scheme)):
             # db: Session = Depends(get_db)
             db = next(get_db())
-            return create_any(db, model, data)
+            return create_any(db, schema, data)
 
-        @_method_name('create_' + model.__name__.lower())
-        def create_na(data: schema_create):
+        @_method_name('create_' + schema.__name__.lower())
+        def create_na(data: model_create):
             """No authentication """
             # db: Session = Depends(get_db)
             db = next(get_db())
-            return create_any(db, model, data)
+            return create_any(db, schema, data)
 
         # @self.router.get("", response_model=list[schema], response_model_exclude=response_model_exclude)
-        @_method_name('get_' + model.__name__.lower())
+        @_method_name('get_' + schema.__name__.lower())
         def get(token=Depends(self.oauth2_scheme)):
             # db: Session = Depends(get_db)
             db = next(get_db())
-            return read(db, model)
+            return read(db, schema)
 
-        @_method_name('get_' + model.__name__.lower())
+        @_method_name('get_' + schema.__name__.lower())
         def get_na():
             """No authentication """
             #db: Session = Depends(get_db)
             db = next(get_db())
-            return read(db, model)
+            return read(db, schema)
 
         # @self.router.get("/{attribute}/{value}", response_model=list[schema]
         #                   , response_model_exclude=response_model_exclude)
-        @_method_name('get_' + model.__name__.lower() + "_by_attribute")
+        @_method_name('get_' + schema.__name__.lower() + "_by_attribute")
         def get_by_attribute(attribute, value, token=Depends(self.oauth2_scheme)):
             # db: Session = Depends(get_db)
             db = next(get_db())
-            return read_by_attribute(db, model, attribute, value)
+            return read_by_attribute(db, schema, attribute, value)
 
-        @_method_name('get_' + model.__name__.lower() + "_by_attribute")
+        @_method_name('get_' + schema.__name__.lower() + "_by_attribute")
         def get_by_attribute_na(attribute, value):
             """No authentication """
             # db: Session = Depends(get_db)
             db = next(get_db())
-            return read_by_attribute(db, model, attribute, value)
+            return read_by_attribute(db, schema, attribute, value)
 
-        # @self.router.put("/{id}", response_model=schema, response_model_exclude=response_model_exclude)
-        @_method_name('update_' + model.__name__.lower())
-        def update_data(id, data: schema,  token=Depends(self.oauth2_scheme)
-                        ):
+        @_method_name('get_' + schema.__name__.lower() + "_by_id")
+        def get_by_id(value, token=Depends(self.oauth2_scheme)):
             # db: Session = Depends(get_db)
             db = next(get_db())
-            return update(db, model, data, id_field, id)
+            return read_by_attribute(db, schema, id_field, value)
 
-        @_method_name('update_' + model.__name__.lower())
-        def update_data_na(id, data: schema):
+        @_method_name('get_' + schema.__name__.lower() + "_by_id")
+        def get_by_id_na(value):
             """No authentication """
             # db: Session = Depends(get_db)
             db = next(get_db())
-            return update(db, model, data, id_field, id)
+            return read_by_attribute(db, schema, id_field, value)
 
-        @_method_name('patch_' + model.__name__.lower())
-        def patch_data(id, data: Union[schema, Annotated[dict, Body]],
+        # @self.router.put("/{id}", response_model=schema, response_model_exclude=response_model_exclude)
+        @_method_name('update_' + schema.__name__.lower())
+        def update_data(id, data: model, token=Depends(self.oauth2_scheme)
+                        ):
+            # db: Session = Depends(get_db)
+            db = next(get_db())
+            return update(db, schema, data, id_field, id)
+
+        @_method_name('update_' + schema.__name__.lower())
+        def update_data_na(id, data: model):
+            """No authentication """
+            # db: Session = Depends(get_db)
+            db = next(get_db())
+            return update(db, schema, data, id_field, id)
+
+        @_method_name('patch_' + schema.__name__.lower())
+        def patch_data(id, data: Union[model, Annotated[dict, Body]],
                        token=Depends(self.oauth2_scheme)):
             # db: Session = Depends(get_db)
             db = next(get_db())
             return patch_data_na(id, data, db)
 
-        @_method_name('patch_' + model.__name__.lower())
-        def patch_data_na(id, data: Union[schema, Annotated[dict, Body]]):
+        @_method_name('patch_' + schema.__name__.lower())
+        def patch_data_na(id, data: Union[model, Annotated[dict, Body]]):
             """No authentication """
             # db: Session = Depends(get_db)
             db = next(get_db())
             invalid = []
             for x in dict(data).keys():
-                if x not in schema.__fields__.keys():
+                if x not in model.__fields__.keys():
                     invalid.append(x)
 
             if len(invalid) > 0:
@@ -318,56 +331,62 @@ class Routes:
                 raise HTTPException(status.HTTP_400_BAD_REQUEST
                                     , detail='Unsupported fields found: ' + (' ,'.join(invalid)))
 
-            return patch(db, model, data, id_field, id)
+            return patch(db, schema, data, id_field, id)
 
         # @self.router.delete("/{id}")
-        @_method_name('delete_' + model.__name__.lower())
+        @_method_name('delete_' + schema.__name__.lower())
         def delete_data(id,
                         token=Depends(self.oauth2_scheme)):
             # db: Session = Depends(get_db)
             db = next(get_db())
-            return delete(db, model, id_field, id)
+            return delete(db, schema, id_field, id)
 
 
-        @_method_name('delete_' + model.__name__.lower())
+        @_method_name('delete_' + schema.__name__.lower())
         def delete_data_na(id):
             """No authentication """
             # db: Session = Depends(get_db)
             db = next(get_db())
-            return delete(db, model, id_field, id)
+            return delete(db, schema, id_field, id)
 
         # endregion crud_methods
 
         if HttpMethods.POST.value in access_mode:
             router.add_api_route("", create if self.oauth2_scheme else create_na, methods=["POST"]
-                                 , response_model=Union[schema, dict, list[Union[schema, dict]]]
+                                 , response_model=Union[model, dict, list[Union[model, dict]]]
                                  , response_model_exclude=response_model_exclude
-                                 , tags=[string.capwords(model.__name__)])
+                                 , tags=[string.capwords(schema.__name__)])
         if HttpMethods.GET.value in access_mode:
             router.add_api_route("", get if self.oauth2_scheme else get_na, methods=["GET"]
-                                 , response_model=list[Union[schema, dict]]
+                                 , response_model=list[Union[model, dict]]
                                  , response_model_exclude=response_model_exclude
-                                 , tags=[string.capwords(model.__name__)])
+                                 , tags=[string.capwords(schema.__name__)])
+            router.add_api_route("/{id}"
+                                 , get_by_id if self.oauth2_scheme else get_by_id_na
+                                 , methods=["GET"]
+                                 , response_model=list[Union[model, dict]]
+                                 , response_model_exclude=response_model_exclude
+                                 , tags=[string.capwords(schema.__name__)])
         if HttpMethods.GET_BY_ATTRIBUTE.value in access_mode:
             router.add_api_route("/{attribute}/{value}"
                                  , get_by_attribute if self.oauth2_scheme else get_by_attribute_na
                                  , methods=["GET"]
-                                 , response_model=list[Union[schema, dict]]
+                                 , response_model=list[Union[model, dict]]
                                  , response_model_exclude=response_model_exclude
-                                 , tags=[string.capwords(model.__name__)])
+                                 , tags=[string.capwords(schema.__name__)])
         if HttpMethods.PUT.value in access_mode:
             router.add_api_route("/{id}", update_data if self.oauth2_scheme else update_data_na, methods=["PUT"]
-                                 , response_model=list[Union[schema, dict]]
+                                 , response_model=list[Union[model, dict]]
                                  , response_model_exclude=response_model_exclude
-                                 , tags=[string.capwords(model.__name__)])
+                                 , tags=[string.capwords(schema.__name__)])
         if HttpMethods.PATCH.value in access_mode:
             router.add_api_route("/{id}", patch_data if self.oauth2_scheme else patch_data_na, methods=["PATCH"]
-                                 , response_model=list[Union[schema, dict]]
+                                 , response_model=list[Union[model, dict]]
                                  , response_model_exclude=response_model_exclude
-                                 , tags=[string.capwords(model.__name__)])
+                                 , tags=[string.capwords(schema.__name__)])
         if HttpMethods.DELETE.value in access_mode:
             router.add_api_route("/{id}", delete_data if self.oauth2_scheme else delete_data_na, methods=["DELETE"]
-                                 , tags=[string.capwords(model.__name__)])
+                                 , tags=[string.capwords(schema.__name__)])
 
         return router
 
