@@ -39,3 +39,5 @@
 
 [project.urls]
     Home = "https://github.com/TokoniK/genroutes"
+[project.scripts]
+    genroutes = "genroutes.generic_routes:generate"
