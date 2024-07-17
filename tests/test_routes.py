@@ -93,7 +93,7 @@ def test_post_user(setup_teardown):
     json={'id': '1', 'username': 'test', 'email': 'test@test.test', 'password': 'password'}
     resp = client.post("/user", json=json)
     print(resp.status_code)
-    assert resp.status_code == 200
+    assert resp.status_code == 201
 
 def test_patch_user(setup_teardown):
     # resp = requests.post('http://'+host+':'+str(port)+'/user')
