@@ -244,6 +244,9 @@ class Routes:
         access_mode: list = kwargs.get('access_mode', HttpMethods.ALL_METHODS)
         id_field: str = kwargs.get('id_field', 'id')
 
+        tag: str = string.capwords(path.replace('_', ' '))# string.capwords(schema.__name__)
+        methodtag: str = path.lower() # schema.__name__.lower()
+
         '''Process access methods in to list of HTTPMethods'''
         if isinstance(access_mode, HttpMethods):
             if not isinstance(access_mode.value, list):
@@ -266,7 +269,7 @@ class Routes:
         # region crud_methods
         service = Service(self.session, schema)
 
-        @_method_name('create_' + schema.__name__.lower())
+        @_method_name('create_' + methodtag)
         def create(data: model_create,
                    token=Depends(self.oauth2_scheme)):
             # db: Session = Depends(get_db)
@@ -274,7 +277,7 @@ class Routes:
             # return create_any(db, schema, data)
             return service.create_any(data)
 
-        @_method_name('create_' + schema.__name__.lower())
+        @_method_name('create_' + methodtag)
         def create_na(data: model_create):
             """No authentication """
             # db: Session = Depends(get_db)
@@ -283,14 +286,14 @@ class Routes:
             return service.create_any(data)
 
         # @self.router.get("", response_model=list[schema]response_model_exclude=response_model_exclude,)
-        @_method_name('get_' + schema.__name__.lower())
+        @_method_name('get_' + methodtag)
         def get(token=Depends(self.oauth2_scheme)):
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return read(db, schema)
             return service.get_all()
 
-        @_method_name('get_' + schema.__name__.lower())
+        @_method_name('get_' + methodtag)
         def get_na():
             """No authentication """
             # db: Session = Depends(get_db)
@@ -300,14 +303,14 @@ class Routes:
 
         # @self.router.get("/{attribute}/{value}", response_model=list[schema]
         #                   response_model_exclude=response_model_exclude,)
-        @_method_name('get_' + schema.__name__.lower() + "_by_attribute")
+        @_method_name('get_' + methodtag + "_by_attribute")
         def get_by_attribute(attribute, value, token=Depends(self.oauth2_scheme)):
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return read_by_attribute(db, schema, attribute, value)
             return service.get_by_attribute(value, attribute)
 
-        @_method_name('get_' + schema.__name__.lower() + "_by_attribute")
+        @_method_name('get_' + methodtag + "_by_attribute")
         def get_by_attribute_na(attribute, value):
             """No authentication """
             # db: Session = Depends(get_db)
@@ -315,14 +318,14 @@ class Routes:
             # return read_by_attribute(db, schema, attribute, value)
             return service.get_by_attribute(value, attribute)
 
-        @_method_name('get_' + schema.__name__.lower() + "_by_id")
+        @_method_name('get_' + methodtag + "_by_id")
         def get_by_id(id, token=Depends(self.oauth2_scheme)):
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return read_by_attribute(db, schema, id_field, value)
             return service.get_by_attribute(id, id_field)
 
-        @_method_name('get_' + schema.__name__.lower() + "_by_id")
+        @_method_name('get_' + methodtag + "_by_id")
         def get_by_id_na(id):
             """No authentication """
             # db: Session = Depends(get_db)
@@ -331,7 +334,7 @@ class Routes:
             return service.get_by_attribute(id, id_field)
 
         # @self.router.put("/{id}", response_model=schemaresponse_model_exclude=response_model_exclude,)
-        @_method_name('update_' + schema.__name__.lower())
+        @_method_name('update_' + methodtag)
         def update_data(id, data: model, token=Depends(self.oauth2_scheme)
                         ):
             # db: Session = Depends(get_db)
@@ -339,7 +342,7 @@ class Routes:
             # return update(db, schema, data, id_field, id_)
             return service.update(data, id, id_field)
 
-        @_method_name('update_' + schema.__name__.lower())
+        @_method_name('update_' + methodtag)
         def update_data_na(id, data: model):
             """No authentication """
             # db: Session = Depends(get_db)
@@ -347,7 +350,7 @@ class Routes:
             # return update(db, schema, data, id_field, id_)
             return service.update(data, id, id_field)
 
-        @_method_name('patch_' + schema.__name__.lower())
+        @_method_name('patch_' + methodtag)
         def patch_data(id, data: Union[model, Annotated[dict, Body]],
                        token=Depends(self.oauth2_scheme)):
             # db: Session = Depends(get_db)
@@ -366,7 +369,7 @@ class Routes:
 
             return service.patch(data, id, id_field)
 
-        @_method_name('patch_' + schema.__name__.lower())
+        @_method_name('patch_' + methodtag)
         def patch_data_na(id, data: Union[model, Annotated[dict, Body]]):
             """No authentication """
             # db: Session = Depends(get_db)
@@ -385,7 +388,7 @@ class Routes:
             return service.patch(data, id, id_field)
 
         # @self.router.delete("/{id}")
-        @_method_name('delete_' + schema.__name__.lower())
+        @_method_name('delete_' + methodtag)
         def delete_data(id,
                         token=Depends(self.oauth2_scheme)):
             # db: Session = Depends(get_db)
@@ -393,7 +396,7 @@ class Routes:
             # return delete(db, schema, id_field, id_)
             return service.delete(id, id_field)
 
-        @_method_name('delete_' + schema.__name__.lower())
+        @_method_name('delete_' + methodtag)
         def delete_data_na(id):
             """No authentication """
             # db: Session = Depends(get_db)
@@ -408,13 +411,13 @@ class Routes:
                                  response_model=Union[model, dict, list[Union[model, dict]]],
                                  response_model_exclude=response_model_exclude,
                                  status_code=status.HTTP_201_CREATED,
-                                 tags=[string.capwords(schema.__name__)])
+                                 tags=[tag])
         if HttpMethods.GET.value in access_mode:
             router.add_api_route("", get if self.oauth2_scheme else get_na, methods=["GET"],
                                  response_model=list[Union[model, dict]],
                                  response_model_exclude=response_model_exclude,
                                  status_code=status.HTTP_200_OK,
-                                 tags=[string.capwords(schema.__name__)])
+                                 tags=[tag])
 
             router.add_api_route("/{id}",
                                  get_by_id if self.oauth2_scheme else get_by_id_na,
@@ -422,7 +425,7 @@ class Routes:
                                  response_model=list[Union[model, dict]],
                                  response_model_exclude=response_model_exclude,
                                  status_code=status.HTTP_200_OK,
-                                 tags=[string.capwords(schema.__name__)])
+                                 tags=[tag])
         if HttpMethods.GET_BY_ATTRIBUTE.value in access_mode:
             router.add_api_route("/{attribute}/{value}",
                                  get_by_attribute if self.oauth2_scheme else get_by_attribute_na,
@@ -430,13 +433,13 @@ class Routes:
                                  response_model=list[Union[model, dict]],
                                  response_model_exclude=response_model_exclude,
                                  status_code=status.HTTP_200_OK,
-                                 tags=[string.capwords(schema.__name__)])
+                                 tags=[tag])
         if HttpMethods.PUT.value in access_mode:
             router.add_api_route("/{id}", update_data if self.oauth2_scheme else update_data_na, methods=["PUT"],
                                  response_model=list[Union[model, dict]],
                                  response_model_exclude=response_model_exclude,
                                  status_code=status.HTTP_200_OK,
-                                 tags=[string.capwords(schema.__name__)])
+                                 tags=[tag])
         if HttpMethods.PATCH.value in access_mode:
             router.add_api_route("/{id}", patch_data if self.oauth2_scheme else patch_data_na, methods=["PATCH"],
                                  response_model=list[Union[model, dict]],
@@ -586,7 +589,7 @@ class Service:
 
 def generate():
 
-    """ v0.0.1a """
+    """ cli to generate routers v0.0.1a """
 
     import argparse
     import os
