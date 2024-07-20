@@ -445,10 +445,10 @@ class Routes:
                                  response_model=list[Union[model, dict]],
                                  response_model_exclude=response_model_exclude,
                                  status_code=status.HTTP_200_OK,
-                                 tags=[string.capwords(schema.__name__)])
+                                 tags=[tag])
         if HttpMethods.DELETE.value in access_mode:
             router.add_api_route("/{id}", delete_data if self.oauth2_scheme else delete_data_na, methods=["DELETE"],
-                                 tags=[string.capwords(schema.__name__)])
+                                 tags=[tag])
 
         return router
 
