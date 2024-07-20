@@ -12,7 +12,6 @@ from sqlalchemy.orm import sessionmaker
 
 from . import crud
 
-
 class HttpMethods(Enum):
     """HTTP Methods defining access modes for gen routes"""
 
@@ -68,12 +67,19 @@ def update(db: Session, schema, data, attribute, value, **kwargs):
         if not isinstance(additional_attribute, dict):
             raise Exception("Arguments must be of type dict")
 
-    obj = crud.get_by_attribute(db, schema, attribute, value, **kwargs)
+    try:
+        obj = crud.get_by_attribute(db, schema, attribute, value, **kwargs)
+    except BaseException as ex:
+        raise HTTPException(status_code=400, detail=str(ex.orig))
 
     if obj is None:
-        raise HTTPException(status_code=409, detail="data not found")
+        raise HTTPException(status_code=404, detail="data not found")
 
-    updated = crud.update_by_attribute(db, schema, data, attribute, value, **kwargs)
+    try:
+        updated = crud.update_by_attribute(db, schema, data, attribute, value, **kwargs)
+    except BaseException as ex:
+        raise HTTPException(status_code=400, detail=str(ex.orig))
+
     return updated
 
 
@@ -84,12 +90,20 @@ def patch(db: Session, schema, data, attribute, value, **kwargs):
         if not isinstance(additional_attribute, dict):
             raise Exception("Arguments must be of type dict")
 
-    obj = crud.get_by_attribute(db, schema, attribute, value, **kwargs)
+    try:
+        obj = crud.get_by_attribute(db, schema, attribute, value, **kwargs)
+    except BaseException as ex:
+        raise HTTPException(status_code=400, detail=str(ex.orig))
 
     if obj is None:
-        raise HTTPException(status_code=409, detail="data not found")
+        raise HTTPException(status_code=404, detail="data not found")
 
-    updated = crud.update_by_attribute(db, schema, data, attribute, value, **kwargs)
+    try:
+        updated = crud.update_by_attribute(db, schema, data, attribute, value, **kwargs)
+    except BaseException as ex:
+        raise HTTPException(status_code=400, detail=str(ex.orig))
+
+
     return updated
 
 
@@ -109,20 +123,28 @@ def delete(db: Session, schema, attribute, value, **kwargs):
     if additional_attribute is not None:
         if not isinstance(additional_attribute, dict):
             raise Exception("Arguments must be of type dict")
-
-    obj = crud.get_by_attribute(db, schema, attribute, value, **kwargs)
+    try:
+        obj = crud.get_by_attribute(db, schema, attribute, value, **kwargs)
+    except BaseException as ex:
+        raise HTTPException(status_code=400, detail=str(ex.orig))
 
     if obj is None:
-        raise HTTPException(status_code=409, detail="data not found")
+        raise HTTPException(status_code=404, detail="data not found")
 
-    msg = crud.delete_by_attribute(db, schema, attribute, value, **kwargs)
+    try:
+        msg = crud.delete_by_attribute(db, schema, attribute, value, **kwargs)
+    except BaseException as ex:
+        raise HTTPException(status_code=400, detail=str(ex.orig))
+
     return {"message": msg}
 
 
 def read(db: Session, schema):
     """Read all records of model from datasource"""
-
-    obj = crud.get_all(db, schema)
+    try:
+        obj = crud.get_all(db, schema)
+    except BaseException as ex:
+        raise HTTPException(status_code=400, detail=str(ex.orig))
     # print(obj)
     return obj
 
@@ -134,7 +156,11 @@ def read_by_attribute(db: Session, schema, attribute, value, **kwargs):
         if not isinstance(additional_attribute, dict):
             raise Exception("Arguments must be of type dict")
 
-    obj = crud.get_by_attribute(db, schema, attribute, value, **kwargs)
+    try:
+        obj = crud.get_by_attribute(db, schema, attribute, value, **kwargs)
+    except BaseException as ex:
+        raise HTTPException(status_code=400, detail=str(ex.orig))
+
     return obj
 
 
