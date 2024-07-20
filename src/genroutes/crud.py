@@ -1,8 +1,35 @@
-from typing import Type
-
+from typing import Type, Union
 from pydantic import BaseModel
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session
+
+from sqlalchemy.inspection import inspect
+import base64
+
+
+def bytes_to_binary(byte_data):
+    """" Helper util convert from bytes to binary """
+    return ' '.join(format(byte, '08b') for byte in byte_data)
+
+
+def binary_to_bytearray(binary):
+    """" Helper util convert from binary to byte array """
+    binary_values = binary.split()
+    byte_array = bytearray(int(bv, 2) for bv in binary_values)
+    return byte_array
+
+
+def to_json(obj) -> dict:
+    """" Safe conversion for byte to base64 for HTTP response"""
+    return {i.key: getattr(obj, i.key) if not type(getattr(obj, i.key)) == bytes
+            else base64.b64encode(getattr(obj, i.key)).decode('utf-8')
+            for i in inspect(obj).mapper.column_attrs}
+
+
+def from_json(obj: dict) -> dict:
+    """" Safe conversion from base64 to bytes from HTTP request """
+    return {k: v if not type(v) == bytes else base64.b64decode(v)
+            for k, v in obj.items()}
 
 
 def get_all(db: Session, schema) -> list[dict]:
@@ -10,7 +37,9 @@ def get_all(db: Session, schema) -> list[dict]:
     result_list = []
 
     for r in results:
-        result_list.append(r.__dict__)
+        # result_list.append(r.__dict__)
+        result_list.append(to_json(r))
+
     return result_list
 
 
@@ -18,22 +47,26 @@ def get_by_id(db: Session, schema: Type[declarative_base()], id_value) -> dict |
     results = db.query(schema).filter(schema.id == id_value).first()
     if results is None:
         return results
-    return results.__dict__
+    return to_json(results)  # results.__dict__
 
 
 def create(db: Session, schema: Type[declarative_base()], data: BaseModel) -> dict:
-    db_row_object = schema(**data.dict())
+    obj = from_json(data.dict())
+    # db_row_object = schema(**data.dict())
+    db_row_object = schema(**obj)
     db.add(db_row_object)
     db.commit()
     db.refresh(db_row_object)
-    return db_row_object.__dict__
+    return to_json(db_row_object)  # db_row_object.__dict__
 
 
 def update(db: Session, schema: Type[declarative_base()], data: BaseModel, row_id) -> dict:
-    db.query(schema).filter_by(id=row_id).update(data.dict(exclude_unset=True), synchronize_session="fetch")
+    obj = from_json(data.dict(exclude_unset=True))
+    # db.query(schema).filter_by(id=row_id).update(data.dict(exclude_unset=True), synchronize_session="fetch")
+    db.query(schema).filter_by(id=row_id).update(obj, synchronize_session="fetch")
     db.commit()
     db_row_object = db.query(schema).filter_by(id=row_id).first()
-    return db_row_object.__dict__
+    return to_json(db_row_object)  # db_row_object.__dict__
 
 
 def update_by_attribute(db: Session, schema: Type[declarative_base()], data: BaseModel,
@@ -42,7 +75,7 @@ def update_by_attribute(db: Session, schema: Type[declarative_base()], data: Bas
     additional_attribute: dict = kwargs.get('additional_attributes', None)
     if additional_attribute is not None:
         if not isinstance(additional_attribute, dict):
-            raise Exception("Arguments must be of type dict")
+            raise Exception("update_by_attribute: Arguments must be of type dict")
 
     additional_attribute = {} if additional_attribute is None else additional_attribute
     all_filter_attributes = {attribute: value, **additional_attribute}
@@ -56,14 +89,18 @@ def update_by_attribute(db: Session, schema: Type[declarative_base()], data: Bas
     if not isinstance(data, dict):
         data = data.dict(exclude_unset=True)
 
-    rows.update(data, synchronize_session="fetch")
+    obj = from_json(data)
+    rows.update(obj, synchronize_session="fetch")
+
     db.commit()
     result_list = []
     # db_row_objects = db.query(schema).filter_by(**filter).all()
     db_row_objects = db.query(schema).filter(*filter_model(schema, all_filter_attributes)).all()
 
     for r in db_row_objects:
-        result_list.append(r.__dict__)
+        # result_list.append(r.__dict__)
+        result_list.append(to_json(r))
+
     return result_list
 
 
@@ -71,7 +108,7 @@ def get_by_attribute(db: Session, schema: Type[declarative_base()], attribute, v
     additional_attribute: dict = kwargs.get('additional_attributes', None)
     if additional_attribute is not None:
         if not isinstance(additional_attribute, dict):
-            raise Exception("Arguments must be of type dict")
+            raise Exception("get_by_attribute: Arguments must be of type dict")
 
     additional_attribute = {} if additional_attribute is None else additional_attribute
     all_filter_attributes = {attribute: value, **additional_attribute}
@@ -80,7 +117,8 @@ def get_by_attribute(db: Session, schema: Type[declarative_base()], attribute, v
     result_list = []
 
     for r in results:
-        result_list.append(r.__dict__)
+        # result_list.append(r.__dict__)
+        result_list.append(to_json(r))
 
     return result_list
 
@@ -97,7 +135,7 @@ def delete_by_attribute(db: Session, schema: Type[declarative_base()], attribute
     additional_attribute: dict = kwargs.get('additional_attributes', None)
     if additional_attribute is not None:
         if not isinstance(additional_attribute, dict):
-            raise Exception("Arguments must be of type dict")
+            raise Exception("delete_by_attribute: Arguments must be of type dict")
 
     additional_attribute = {} if additional_attribute is None else additional_attribute
     all_filter_attributes = {attribute: value, **additional_attribute}
@@ -115,7 +153,9 @@ def filter_model(schema, filter_attributes):
     # if additional_attribute is not None:
     for k, v in filter_attributes.items():
         try:
-            filters = [*filters, schema.__dict__[k] == v]
+            # filters = [*filters, schema.__dict__[k] == v]
+            filters = [*filters, to_json(schema)[k] == v]
+
         except KeyError:
             pass
 
