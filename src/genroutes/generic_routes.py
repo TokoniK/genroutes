@@ -48,6 +48,8 @@ def create(db: Session, schema, key_attribute, data: BaseModel, *args):
         raise HTTPException(status_code=409, detail="data already exists")
 
     new_object = crud.create(db, schema, data)
+
+    db.close()
     return new_object
 
 
@@ -80,6 +82,7 @@ def update(db: Session, schema, data, attribute, value, **kwargs):
     except BaseException as ex:
         raise HTTPException(status_code=400, detail=str(ex.orig))
 
+    db.close()
     return updated
 
 
@@ -103,7 +106,7 @@ def patch(db: Session, schema, data, attribute, value, **kwargs):
     except BaseException as ex:
         raise HTTPException(status_code=400, detail=str(ex.orig))
 
-
+    db.close()
     return updated
 
 
@@ -136,6 +139,7 @@ def delete(db: Session, schema, attribute, value, **kwargs):
     except BaseException as ex:
         raise HTTPException(status_code=400, detail=str(ex.orig))
 
+    db.close()
     return {"message": msg}
 
 
@@ -146,6 +150,7 @@ def read(db: Session, schema):
     except BaseException as ex:
         raise HTTPException(status_code=400, detail=str(ex.orig))
     # print(obj)
+    db.close()
     return obj
 
 
@@ -160,7 +165,7 @@ def read_by_attribute(db: Session, schema, attribute, value, **kwargs):
         obj = crud.get_by_attribute(db, schema, attribute, value, **kwargs)
     except BaseException as ex:
         raise HTTPException(status_code=400, detail=str(ex.orig))
-
+    db.close()
     return obj
 
 
@@ -170,7 +175,7 @@ def create_any(db: Session, schema, data):
         new_object = crud.create(db, schema, data)
     except BaseException as ex:
         raise HTTPException(status_code=400, detail=str(ex.orig))
-
+    db.close()
     return new_object
 
 
