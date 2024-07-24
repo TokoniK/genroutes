@@ -74,25 +74,25 @@ SQLALCHEMY_DATABASE_URL = "sqlite:///./sql_app.db"
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
 )
-
 Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 app = FastAPI(swagger_ui_parameters={"defaultModelsExpandDepth": -1})
 
-Base.metadata.tables['users'].create(engine)
 
 # Create crud routes for User schema / UserModel model combo
 routes = Routes(Session)
 
-# Use auth_route param to specify authentication endpoint
+# Use auth_route param to specify authentication endpoint (Optional)
 # routes = Routes(Session, auth_route='auth')
 
+# Specify primary key field for schema using the id_field parameter 
 user_routes = routes.get_router("user", User, UserModel, UserModel,
                                 response_exclude=["password"],
                                 access_mode=HttpMethods.ALL_METHODS, id_field='id')
 
 # Add crud router to app
 app.include_router(router=user_routes)
+Base.metadata.tables['users'].create(engine)
 ```
 
 Run the app on a web server such as uvicorn:  
