@@ -32,26 +32,66 @@ Install package with pip:
 Import Routes & HttpMethods into module
 ``from genroutes import Routes, HttpMethods``
 
-For instance, say your FastAPI project has an SQLAlchemy schema object ``User``, a pydantic model ``UserEntity``
-and a SQLAlchemy session object ``Session``. CRUD routes can be generated using the example below:
+Create CRUD endpoints for SQLAlchemy schema object (e.g ``User``) and a pydantic model (e.g ``UserModel``)
+with an SQLAlchemy session object (e.g ``Session``) using the example below:
+
+
+
 
 **main.py**
 ```
 from fastapi import FastAPI
 from genroutes import Routes, HttpMethods
-#<import User>
-#<import UserEntity>
-#<import Session>
+from pydantic import BaseModel
+from sqlalchemy import Column, VARCHAR, INTEGER, create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base
+
+Base = declarative_base()
+
+#SQLAlchemy Schema Class
+class User(Base):
+    __tablename__ = u'users'
+
+    # column definitions
+    user_id = Column(INTEGER(), primary_key=True, nullable=False)
+    username = Column(VARCHAR, nullable=False)
+    email_address = Column(VARCHAR)
+    password_hash = Column(VARCHAR)
+
+#Corresponding BaseModel Class for validation
+class UserModel(BaseModel):
+    # column definitions
+    user_id: int | None
+    username: str
+    email_address: str | None = None
+    password_hash: str | None = None
+
+
+#Dummy Database
+SQLALCHEMY_DATABASE_URL = "sqlite:///./sql_app.db"
+# SQLALCHEMY_DATABASE_URL = "postgresql://user:password@postgresserver/db"
+
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+)
+
+Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 app = FastAPI(swagger_ui_parameters={"defaultModelsExpandDepth": -1})
 
-#Create crud routes for User model / UserEntity schema combo
-routes = Routes(Session, auth_route='auth')
-user_routes = routes.get_router("user", User, UserEntity, UserEntity,
-            response_exclude=["password"],
-            access_mode=HttpMethods.ALL_METHODS, id_field = 'id')
+Base.metadata.tables['users'].create(engine)
 
-#Add crud router to app
+# Create crud routes for User schema / UserModel model combo
+routes = Routes(Session)
+
+# Use auth_route param to specify authentication endpoint
+# routes = Routes(Session, auth_route='auth')
+
+user_routes = routes.get_router("user", User, UserModel, UserModel,
+                                response_exclude=["password"],
+                                access_mode=HttpMethods.ALL_METHODS, id_field='id')
+
+# Add crud router to app
 app.include_router(router=user_routes)
 ```
 
