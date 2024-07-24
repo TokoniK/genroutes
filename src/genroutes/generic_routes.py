@@ -3,14 +3,18 @@ from enum import Enum
 from typing import Annotated, Union, Type
 from typing import Iterator
 
-from fastapi import APIRouter, HTTPException, Depends, Response, status, Body
+from fastapi import APIRouter, HTTPException, Depends, Response, status, Body, Header
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
+import psycopg2
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import sessionmaker
 
 from . import crud
+from .cli.metafactory import generate_models
+from .cli.generate import generate_routes
+
 
 class HttpMethods(Enum):
     """HTTP Methods defining access modes for gen routes"""
@@ -302,14 +306,14 @@ class Routes:
 
         @_method_name('create_' + methodtag)
         def create(data: model_create,
-                   token=Depends(self.oauth2_scheme)):
+                   token=Depends(self.oauth2_scheme), user_schema: str | None = Header(default=None)):
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return create_any(db, schema, data)
             return service.create_any(data)
 
         @_method_name('create_' + methodtag)
-        def create_na(data: model_create):
+        def create_na(data: model_create, user_schema: str | None = Header(default=None)):
             """No authentication """
             # db: Session = Depends(get_db)
             # db = next(get_db())
@@ -318,72 +322,93 @@ class Routes:
 
         # @self.router.get("", response_model=list[schema]response_model_exclude=response_model_exclude,)
         @_method_name('get_' + methodtag)
-        def get(token=Depends(self.oauth2_scheme)):
+        def get(token=Depends(self.oauth2_scheme), user_schema: str | None = Header(default=None)):
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return read(db, schema)
             return service.get_all()
 
         @_method_name('get_' + methodtag)
-        def get_na():
+        def get_na(user_schema: str | None = Header(default=None)):
             """No authentication """
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return read(db, schema)
+
+            #Control db schema using header value
+            service.set_dbschema({None: user_schema})
             return service.get_all()
 
         # @self.router.get("/{attribute}/{value}", response_model=list[schema]
         #                   response_model_exclude=response_model_exclude,)
         @_method_name('get_' + methodtag + "_by_attribute")
-        def get_by_attribute(attribute, value, token=Depends(self.oauth2_scheme)):
+        def get_by_attribute(attribute, value, token=Depends(self.oauth2_scheme), user_schema: str | None = Header(default=None)):
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return read_by_attribute(db, schema, attribute, value)
+
+            #Control db schema using header value
+            service.set_dbschema({None: user_schema})
             return service.get_by_attribute(value, attribute)
 
         @_method_name('get_' + methodtag + "_by_attribute")
-        def get_by_attribute_na(attribute, value):
+        def get_by_attribute_na(attribute, value, user_schema: str | None = Header(default=None)):
             """No authentication """
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return read_by_attribute(db, schema, attribute, value)
+
+            #Control db schema using header value
+            service.set_dbschema({None: user_schema})
             return service.get_by_attribute(value, attribute)
 
         @_method_name('get_' + methodtag + "_by_id")
-        def get_by_id(id, token=Depends(self.oauth2_scheme)):
+        def get_by_id(id, token=Depends(self.oauth2_scheme), user_schema: str | None = Header(default=None)):
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return read_by_attribute(db, schema, id_field, value)
+
+            #Control db schema using header value
+            service.set_dbschema({None: user_schema})
             return service.get_by_attribute(id, id_field)
 
         @_method_name('get_' + methodtag + "_by_id")
-        def get_by_id_na(id):
+        def get_by_id_na(id, user_schema: str | None = Header(default=None)):
             """No authentication """
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return read_by_attribute(db, schema, id_field, value)
+
+            #Control db schema using header value
+            service.set_dbschema({None: user_schema})
             return service.get_by_attribute(id, id_field)
 
         # @self.router.put("/{id}", response_model=schemaresponse_model_exclude=response_model_exclude,)
         @_method_name('update_' + methodtag)
-        def update_data(id, data: model, token=Depends(self.oauth2_scheme)
-                        ):
+        def update_data(id, data: model, token=Depends(self.oauth2_scheme),
+                        user_schema: str | None = Header(default=None) ):
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return update(db, schema, data, id_field, id_)
+
+            #Control db schema using header value
+            service.set_dbschema({None: user_schema})
             return service.update(data, id, id_field)
 
         @_method_name('update_' + methodtag)
-        def update_data_na(id, data: model):
+        def update_data_na(id, data: model, user_schema: str | None = Header(default=None)):
             """No authentication """
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return update(db, schema, data, id_field, id_)
+
+            #Control db schema using header value
+            service.set_dbschema({None: user_schema})
             return service.update(data, id, id_field)
 
         @_method_name('patch_' + methodtag)
         def patch_data(id, data: Union[model, Annotated[dict, Body]],
-                       token=Depends(self.oauth2_scheme)):
+                       token=Depends(self.oauth2_scheme), user_schema: str | None = Header(default=None)):
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return patch_data_na(id_, data, db)
@@ -398,10 +423,12 @@ class Routes:
                 raise HTTPException(status.HTTP_400_BAD_REQUEST,
                                     detail='Unsupported fields found: ' + (' ,'.join(invalid)))
 
+            # Control db schema using header value
+            service.set_dbschema({None: user_schema})
             return service.patch(data, id, id_field)
 
         @_method_name('patch_' + methodtag)
-        def patch_data_na(id, data: Union[model, Annotated[dict, Body]]):
+        def patch_data_na(id, data: Union[model, Annotated[dict, Body]], user_schema: str | None = Header(default=None)):
             """No authentication """
             # db: Session = Depends(get_db)
             # db = next(get_db())
@@ -416,23 +443,32 @@ class Routes:
                                     detail='Unsupported fields found: ' + (' ,'.join(invalid)))
 
             # return patch(db, schema, data, id_field, id_)
+
+            # Control db schema using header value
+            service.set_dbschema({None: user_schema})
             return service.patch(data, id, id_field)
 
         # @self.router.delete("/{id}")
         @_method_name('delete_' + methodtag)
         def delete_data(id,
-                        token=Depends(self.oauth2_scheme)):
+                        token=Depends(self.oauth2_scheme), user_schema: str | None = Header(default=None)):
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return delete(db, schema, id_field, id_)
+
+            # Control db schema using header value
+            service.set_dbschema({None: user_schema})
             return service.delete(id, id_field)
 
         @_method_name('delete_' + methodtag)
-        def delete_data_na(id):
+        def delete_data_na(id, user_schema: str | None = Header(default=None)):
             """No authentication """
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return delete(db, schema, id_field, id_)
+
+            # Control db schema using header value
+            service.set_dbschema({None: user_schema})
             return service.delete(id, id_field)
 
         # endregion crud_methods
@@ -536,8 +572,28 @@ class Service:
     def __init__(self, session, schema: DataTable):
         self.session = session
         self.schema = schema
+        self.db_schema = None
+
+    def set_dbschema(self, dbschema: dict[str|None, str]):
+        self.db_schema = dbschema
+
+    def get_engine(self):
+        s = self.session()
+        try:
+            yield s.get_bind()
+        finally:
+            s.close()
 
     def _get_db(self) -> Iterator[Session]:
+        if self.db_schema:
+            engine = next(self.get_engine())
+            engine = engine.execution_options(schema_translate_map=self.db_schema)
+            self.session.configure(bind=engine)
+        else:
+            engine = next(self.get_engine())
+            engine = engine.execution_options(schema_translate_map={None: "public"})
+            self.session.configure(bind=engine)
+
         db = self.session()
         try:
             yield db
@@ -617,64 +673,4 @@ class Service:
         db = next(self._get_db())
         return patch(db, schema=self.schema, data=obj, attribute=attribute, value=value, **kwargs)
 
-
-def generate():
-
-    """ cli to generate routers v0.0.1a """
-
-    import argparse
-    import os
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument("-schemadir", "--schema", help="database schema directory", dest="schema")
-    parser.add_argument("-modeldir", "--model", help="pydanctic model directory", dest="model")
-
-    args = parser.parse_args()
-
-    schema: str = args.schema
-    model: str = args.model
-
-    if not schema or not model:
-        print('include args -schema & -model')
-        return
-
-    schema_pkg = schema.replace('/', '.')
-    model_pkg = model.replace('/', '.')
-
-    sc = schema_pkg.split('.')
-    imp_sc = 'from %s import %s' % ('.'.join(sc[0:-1]), sc[-1])
-    md = model_pkg.split('.')
-    imp_md = 'from %s import %s' % ('.'.join(md[0:-1]), md[-1])
-
-    imp = 'from genroutes import Routes, HttpMethods\n'
-    imp += 'from fastapi import FastAPI\n'
-    # imp +='import %s \nimport %s\n\n' % (schema_pkg, model_pkg)
-    imp +='%s\n%s\n\n' % (imp_sc, imp_md)
-
-
-    sc_path = os.path.abspath(('./'+schema).replace('//','/'))
-    md_path = os.path.abspath(('./'+model_pkg).replace('//','/'))
-
-    files = os.listdir(sc_path)
-
-    init = 'app = FastAPI()\nroutes = Routes(SessionLocal) # inject db session maker object\n\n'
-
-    print(imp)
-    print(init)
-    with open('main.py', 'a') as file:
-        file.write('# organize imports\n\n')
-        file.write(imp)
-        file.write(init)
-        file.write('# verify id_field param of routes.get_router\n\n')
-        for f in files:
-            if f.endswith('.py') and not f.startswith('__'):
-                # print(f[0].upper()+f[1:-3])
-                clsName = f[0].upper()+f[1:-3]
-                names = clsName.split('_')
-                names = [f[0].upper()+f[1:] for f in names]
-                clsName = ''.join(names)
-                router_declare = "app.include_router(routes.get_router('%s', schemas.%s, models.%s, models.%s))\n" \
-                                 % (f[0:-3], clsName, clsName, clsName)
-                file.write(router_declare)
-                print(router_declare)
 
