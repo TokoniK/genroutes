@@ -43,7 +43,7 @@ with an SQLAlchemy session object (e.g ``Session``) using the example below:
 from fastapi import FastAPI
 from genroutes import Routes, HttpMethods
 from pydantic import BaseModel
-from sqlalchemy import Column, VARCHAR, INTEGER, create_engine
+from sqlalchemy import Column, VARCHAR, INTEGER, create_engine, StaticPool
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 Base = declarative_base()
@@ -68,11 +68,12 @@ class UserModel(BaseModel):
 
 
 #Dummy Database
-SQLALCHEMY_DATABASE_URL = "sqlite:///./sql_app.db"
+SQLALCHEMY_DATABASE_URL = "sqlite://"
+# SQLALCHEMY_DATABASE_URL = "sqlite:///./sql_app.db"
 # SQLALCHEMY_DATABASE_URL = "postgresql://user:password@postgresserver/db"
 
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}, poolclass=StaticPool
 )
 Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -92,7 +93,8 @@ user_routes = routes.get_router("user", User, UserModel, UserModel,
 
 # Add crud router to app
 app.include_router(router=user_routes)
-Base.metadata.tables['users'].create(engine)
+Base.metadata.create_all(engine)
+# Base.metadata.tables['users'].create(engine)
 ```
 
 Run the app on a web server such as uvicorn:  
