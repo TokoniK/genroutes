@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Depends, Response, status, Body, H
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 import psycopg2
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import sessionmaker
 
@@ -415,7 +415,7 @@ class Routes:
 
             invalid = []
             for x in dict(data).keys():
-                if x not in model.__fields__.keys():
+                if x not in model.model_fields.keys():
                     invalid.append(x)
 
             if len(invalid) > 0:
@@ -434,7 +434,7 @@ class Routes:
             # db = next(get_db())
             invalid = []
             for x in dict(data).keys():
-                if x not in model.__fields__.keys():
+                if x not in model.model_fields.keys():
                     invalid.append(x)
 
             if len(invalid) > 0:
@@ -475,13 +475,13 @@ class Routes:
 
         if HttpMethods.POST.value in access_mode:
             router.add_api_route("", create if self.oauth2_scheme else create_na, methods=["POST"],
-                                 response_model=Union[model, dict, list[Union[model, dict]]],
+                                 response_model=Union[Type[model], dict, list[Union[Type[model], dict]]],
                                  response_model_exclude=response_model_exclude,
                                  status_code=status.HTTP_201_CREATED,
                                  tags=[tag])
         if HttpMethods.GET.value in access_mode:
             router.add_api_route("", get if self.oauth2_scheme else get_na, methods=["GET"],
-                                 response_model=list[Union[model, dict]],
+                                 response_model=list[Union[Type[model], dict]],
                                  response_model_exclude=response_model_exclude,
                                  status_code=status.HTTP_200_OK,
                                  tags=[tag])
@@ -489,7 +489,7 @@ class Routes:
             router.add_api_route("/{id}",
                                  get_by_id if self.oauth2_scheme else get_by_id_na,
                                  methods=["GET"],
-                                 response_model=list[Union[model, dict]],
+                                 response_model=list[Union[Type[model], dict]],
                                  response_model_exclude=response_model_exclude,
                                  status_code=status.HTTP_200_OK,
                                  tags=[tag])
@@ -497,19 +497,19 @@ class Routes:
             router.add_api_route("/{attribute}/{value}",
                                  get_by_attribute if self.oauth2_scheme else get_by_attribute_na,
                                  methods=["GET"],
-                                 response_model=list[Union[model, dict]],
+                                 response_model=list[Union[Type[model], dict]],
                                  response_model_exclude=response_model_exclude,
                                  status_code=status.HTTP_200_OK,
                                  tags=[tag])
         if HttpMethods.PUT.value in access_mode:
             router.add_api_route("/{id}", update_data if self.oauth2_scheme else update_data_na, methods=["PUT"],
-                                 response_model=list[Union[model, dict]],
+                                 response_model=list[Union[Type[model], dict]],
                                  response_model_exclude=response_model_exclude,
                                  status_code=status.HTTP_200_OK,
                                  tags=[tag])
         if HttpMethods.PATCH.value in access_mode:
             router.add_api_route("/{id}", patch_data if self.oauth2_scheme else patch_data_na, methods=["PATCH"],
-                                 response_model=list[Union[model, dict]],
+                                 response_model=list[Union[Type[model], dict]],
                                  response_model_exclude=response_model_exclude,
                                  status_code=status.HTTP_200_OK,
                                  tags=[tag])
