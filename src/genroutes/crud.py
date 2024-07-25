@@ -1,6 +1,6 @@
 from typing import Type, Union
 from pydantic import BaseModel
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import Session
 
 from sqlalchemy.inspection import inspect
@@ -51,7 +51,7 @@ def get_by_id(db: Session, schema: Type[declarative_base()], id_value) -> dict |
 
 
 def create(db: Session, schema: Type[declarative_base()], data: BaseModel) -> dict:
-    obj = from_json(data.dict())
+    obj = from_json(data.model_dump())
     # db_row_object = schema(**data.dict())
     db_row_object = schema(**obj)
     db.add(db_row_object)
@@ -61,7 +61,7 @@ def create(db: Session, schema: Type[declarative_base()], data: BaseModel) -> di
 
 
 def update(db: Session, schema: Type[declarative_base()], data: BaseModel, row_id) -> dict:
-    obj = from_json(data.dict(exclude_unset=True))
+    obj = from_json(data.model_dump(exclude_unset=True))
     # db.query(schema).filter_by(id=row_id).update(data.dict(exclude_unset=True), synchronize_session="fetch")
     db.query(schema).filter_by(id=row_id).update(obj, synchronize_session="fetch")
     db.commit()
@@ -87,7 +87,7 @@ def update_by_attribute(db: Session, schema: Type[declarative_base()], data: Bas
         return []
 
     if not isinstance(data, dict):
-        data = data.dict(exclude_unset=True)
+        data = data.model_dump(exclude_unset=True)
 
     obj = from_json(data)
     rows.update(obj, synchronize_session="fetch")

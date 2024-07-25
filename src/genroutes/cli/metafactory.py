@@ -61,12 +61,12 @@ def generate_models(database, username, hostname, port, password, schemaname):
     with open(models_path + "/__init__.py", "w", encoding='utf-8') as file:
         file.write("")
     with open(schemas_path + "/__init__.py", "w", encoding='utf-8') as file:
-        file.write("from .database_env import DatabaseTable, SessionLocal, SQLALCHEMY_DATABASE_URL")
+        file.write("from .database_env import DatabaseTable, SessionLocal, SQLALCHEMY_DATABASE_URL, engine")
 
     with open(schemas_path + "/database_env.py", "w", encoding='utf-8') as file:
         file.write('"""Initialize base objects for database schema model"""\n\n')
         file.write("from sqlalchemy import create_engine\n"
-                   "from sqlalchemy.ext.declarative import declarative_base\n"
+                   "from sqlalchemy.orm import declarative_base\n"
                    "from sqlalchemy.orm import sessionmaker\n\n"
                    "SQLALCHEMY_DATABASE_URL = 'postgresql://user:password@postgresserver/db'\n"
                    "engine = create_engine(\n"
@@ -193,7 +193,9 @@ from sqlalchemy.orm import Mapped, mapped_column
                            pg_attribute.atthasdef as has_default,
                            --adsrc as default_value,
                            '' as default_value,
-                           pg_constraint.contype
+                           pg_constraint.contype,
+                           pg_attribute.attidentity identity_type
+
                         FROM
                           pg_attribute
                           INNER JOIN pg_class ON (pg_attribute.attrelid = pg_class.oid)
@@ -207,6 +209,7 @@ from sqlalchemy.orm import Mapped, mapped_column
         cs = cur.fetchall()
         cols = ""
         for c in cs:
+            print(c)
             dt = c[2]
             if re.search("character varying", dt):
                 # print(c[4])
@@ -218,13 +221,17 @@ from sqlalchemy.orm import Mapped, mapped_column
             elif re.search("date", dt):
                 dt = "DATETIME()"
             elif re.search("bigint", dt):
-                dt = "BigInteger()"
+                dt = "BIGINT"
             else:
                 # print('xxxxxxxxxxxx ' + dt)
                 dt = dt.replace(" ", "_").upper() + "()"
             if cols != "":
                 cols += "\n"
             cols += "    %s = Column(%s" % (c[1], dt)
+            if c[9] == "d":
+                cols += ", Identity()"
+            elif c[9] == "a":
+                cols += ", Identity(always=True)"
             if c[6]:
                 if re.search("nextval\('", c[7]):
                     cols += ", Sequence('%s')" % str(c[7]).replace("nextval('", "").replace("'::regclass)", "")
