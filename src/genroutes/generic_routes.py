@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Annotated, Union, Type
 from typing import Iterator
 
-from fastapi import APIRouter, HTTPException, Depends, Response, status, Body, Header
+from fastapi import APIRouter, HTTPException, Depends, Response, status, Body, Header, Request
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 import psycopg2
@@ -342,25 +342,29 @@ class Routes:
         # @self.router.get("/{attribute}/{value}", response_model=list[schema]
         #                   response_model_exclude=response_model_exclude,)
         @_method_name('get_' + methodtag + "_by_attribute")
-        def get_by_attribute(attribute, value, token=Depends(self.oauth2_scheme), user_schema: str | None = Header(default=None)):
+        def get_by_attribute(attribute, value, request: Request, token=Depends(self.oauth2_scheme), user_schema: str | None = Header(default=None)):
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return read_by_attribute(db, schema, attribute, value)
 
-            #Control db schema using header value
+            param: dict = {k: v for k, v in request.query_params.items()}
+            additional_attributes = {'additional_attributes': param} if param else {}
+            # Control db schema using header value
             service.set_dbschema({None: user_schema})
-            return service.get_by_attribute(value, attribute)
+            return service.get_by_attribute(value, attribute, **additional_attributes)
 
         @_method_name('get_' + methodtag + "_by_attribute")
-        def get_by_attribute_na(attribute, value, user_schema: str | None = Header(default=None)):
+        def get_by_attribute_na(attribute, value, request: Request, user_schema: str | None = Header(default=None)):
             """No authentication """
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return read_by_attribute(db, schema, attribute, value)
 
-            #Control db schema using header value
+            param: dict = {k: v for k, v in request.query_params.items()}
+            additional_attributes = {'additional_attributes': param} if param else {}
+            # Control db schema using header value
             service.set_dbschema({None: user_schema})
-            return service.get_by_attribute(value, attribute)
+            return service.get_by_attribute(value, attribute, **additional_attributes)
 
         @_method_name('get_' + methodtag + "_by_id")
         def get_by_id(id, token=Depends(self.oauth2_scheme), user_schema: str | None = Header(default=None)):
@@ -368,7 +372,7 @@ class Routes:
             # db = next(get_db())
             # return read_by_attribute(db, schema, id_field, value)
 
-            #Control db schema using header value
+            # Control db schema using header value
             service.set_dbschema({None: user_schema})
             return service.get_by_attribute(id, id_field)
 
@@ -379,7 +383,7 @@ class Routes:
             # db = next(get_db())
             # return read_by_attribute(db, schema, id_field, value)
 
-            #Control db schema using header value
+            # Control db schema using header value
             service.set_dbschema({None: user_schema})
             return service.get_by_attribute(id, id_field)
 
@@ -475,13 +479,13 @@ class Routes:
 
         if HttpMethods.POST.value in access_mode:
             router.add_api_route("", create if self.oauth2_scheme else create_na, methods=["POST"],
-                                 response_model=Union[Type[model], dict, list[Union[Type[model], dict]]],
+                                 response_model=Union[model, dict, list[Union[model, dict]]],
                                  response_model_exclude=response_model_exclude,
                                  status_code=status.HTTP_201_CREATED,
                                  tags=[tag])
         if HttpMethods.GET.value in access_mode:
             router.add_api_route("", get if self.oauth2_scheme else get_na, methods=["GET"],
-                                 response_model=list[Union[Type[model], dict]],
+                                 response_model=list[Union[model, dict]],
                                  response_model_exclude=response_model_exclude,
                                  status_code=status.HTTP_200_OK,
                                  tags=[tag])
@@ -489,7 +493,7 @@ class Routes:
             router.add_api_route("/{id}",
                                  get_by_id if self.oauth2_scheme else get_by_id_na,
                                  methods=["GET"],
-                                 response_model=list[Union[Type[model], dict]],
+                                 response_model=list[Union[model, dict]],
                                  response_model_exclude=response_model_exclude,
                                  status_code=status.HTTP_200_OK,
                                  tags=[tag])
@@ -497,19 +501,19 @@ class Routes:
             router.add_api_route("/{attribute}/{value}",
                                  get_by_attribute if self.oauth2_scheme else get_by_attribute_na,
                                  methods=["GET"],
-                                 response_model=list[Union[Type[model], dict]],
+                                 response_model=list[Union[model, dict]],
                                  response_model_exclude=response_model_exclude,
                                  status_code=status.HTTP_200_OK,
                                  tags=[tag])
         if HttpMethods.PUT.value in access_mode:
             router.add_api_route("/{id}", update_data if self.oauth2_scheme else update_data_na, methods=["PUT"],
-                                 response_model=list[Union[Type[model], dict]],
+                                 response_model=list[Union[model, dict]],
                                  response_model_exclude=response_model_exclude,
                                  status_code=status.HTTP_200_OK,
                                  tags=[tag])
         if HttpMethods.PATCH.value in access_mode:
             router.add_api_route("/{id}", patch_data if self.oauth2_scheme else patch_data_na, methods=["PATCH"],
-                                 response_model=list[Union[Type[model], dict]],
+                                 response_model=list[Union[model, dict]],
                                  response_model_exclude=response_model_exclude,
                                  status_code=status.HTTP_200_OK,
                                  tags=[tag])
