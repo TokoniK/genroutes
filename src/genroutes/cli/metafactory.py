@@ -218,7 +218,7 @@ from sqlalchemy.orm import Mapped, mapped_column
                 dt = "CHAR%s" % ('' if c[4] == -1 else '(%s)' % (int(c[4]) - 4))
             elif re.search("timestamp", dt):
                 dt = "TIMESTAMP()"
-            elif re.search("date", dt):
+            elif re.search("date", dt) or re.search("datetime", dt):
                 dt = "DATETIME()"
             elif re.search("bigint", dt):
                 dt = "BIGINT"
