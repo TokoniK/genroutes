@@ -1,6 +1,6 @@
 import string
 from enum import Enum
-from typing import Annotated, Union, Type
+from typing import Annotated, Union, Type, Dict
 from typing import Iterator
 
 from fastapi import APIRouter, HTTPException, Depends, Response, status, Body, Header, Request
@@ -173,6 +173,21 @@ def read_by_attribute(db: Session, schema, attribute, value, **kwargs):
     return obj
 
 
+def read_by_attribute_paginated(db: Session, schema, attribute, value, page, limit, **kwargs):
+    """Read records of model from datasource filtered by 'attribute = value' """
+    additional_attribute: dict = kwargs.get('additional_attributes', None)
+    if additional_attribute is not None:
+        if not isinstance(additional_attribute, dict):
+            raise Exception("Arguments must be of type dict")
+
+    try:
+        obj = crud.get_by_attribute_paginated(db, schema, attribute, value, page, limit, **kwargs)
+    except BaseException as ex:
+        raise HTTPException(status_code=400, detail=str(ex.orig))
+    db.close()
+    return obj
+
+
 def create_any(db: Session, schema, data):
     """Create records without validating against unique fields"""
     try:
@@ -279,8 +294,8 @@ class Routes:
         access_mode: list = kwargs.get('access_mode', HttpMethods.ALL_METHODS)
         id_field: str = kwargs.get('id_field', 'id')
 
-        tag: str = string.capwords(path.replace('_', ' '))# string.capwords(schema.__name__)
-        methodtag: str = path.lower() # schema.__name__.lower()
+        tag: str = string.capwords(path.replace('_', ' '))  # string.capwords(schema.__name__)
+        methodtag: str = path.lower()  # schema.__name__.lower()
 
         '''Process access methods in to list of HTTPMethods'''
         if isinstance(access_mode, HttpMethods):
@@ -335,14 +350,15 @@ class Routes:
             # db = next(get_db())
             # return read(db, schema)
 
-            #Control db schema using header value
+            # Control db schema using header value
             service.set_dbschema({None: user_schema})
             return service.get_all()
 
         # @self.router.get("/{attribute}/{value}", response_model=list[schema]
         #                   response_model_exclude=response_model_exclude,)
         @_method_name('get_' + methodtag + "_by_attribute")
-        def get_by_attribute(attribute, value, request: Request, token=Depends(self.oauth2_scheme), user_schema: str | None = Header(default=None)):
+        def get_by_attribute(attribute, value, request: Request, token=Depends(self.oauth2_scheme),
+                             user_schema: str | None = Header(default=None)):
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return read_by_attribute(db, schema, attribute, value)
@@ -364,6 +380,42 @@ class Routes:
             additional_attributes = {'additional_attributes': param} if param else {}
             # Control db schema using header value
             service.set_dbschema({None: user_schema})
+            return service.get_by_attribute(value, attribute, **additional_attributes)
+
+        @_method_name('get_' + methodtag + "_by_attribute")
+        def get_by_attribute_paginated(attribute, value, request: Request, token=Depends(self.oauth2_scheme),
+                                       user_schema: str | None = Header(default=None), page: int | None = None,
+                                       limit: int | None = None):
+            # db: Session = Depends(get_db)
+            # db = next(get_db())
+            # return read_by_attribute(db, schema, attribute, value)
+
+            param: dict = {k: v for k, v in request.query_params.items()}
+            additional_attributes = {'additional_attributes': param} if param else {}
+            # Control db schema using header value
+            service.set_dbschema({None: user_schema})
+
+            if not page is None and not limit is None:
+                return service.get_by_attribute_paginated(value, attribute, page, limit, **additional_attributes)
+            return service.get_by_attribute(value, attribute, **additional_attributes)
+
+        @_method_name('get_' + methodtag + "_by_attribute")
+        def get_by_attribute_paginated_na(attribute, value
+                                          , request: Request
+                                          , user_schema: str | None = Header(default=None)
+                                          , page: int | None = None, limit: int | None = None):
+            """No authentication """
+            # db: Session = Depends(get_db)
+            # db = next(get_db())
+            # return read_by_attribute(db, schema, attribute, value)
+
+            param: dict = {k: v for k, v in request.query_params.items()}
+            additional_attributes = {'additional_attributes': param} if param else {}
+            # Control db schema using header value
+            service.set_dbschema({None: user_schema})
+
+            if not page is None and not limit is None:
+                return service.get_by_attribute_paginated(value, attribute, page, limit, **additional_attributes)
             return service.get_by_attribute(value, attribute, **additional_attributes)
 
         @_method_name('get_' + methodtag + "_by_id")
@@ -390,12 +442,12 @@ class Routes:
         # @self.router.put("/{id}", response_model=schemaresponse_model_exclude=response_model_exclude,)
         @_method_name('update_' + methodtag)
         def update_data(id, data: model, token=Depends(self.oauth2_scheme),
-                        user_schema: str | None = Header(default=None) ):
+                        user_schema: str | None = Header(default=None)):
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return update(db, schema, data, id_field, id_)
 
-            #Control db schema using header value
+            # Control db schema using header value
             service.set_dbschema({None: user_schema})
             return service.update(data, id, id_field)
 
@@ -406,7 +458,7 @@ class Routes:
             # db = next(get_db())
             # return update(db, schema, data, id_field, id_)
 
-            #Control db schema using header value
+            # Control db schema using header value
             service.set_dbschema({None: user_schema})
             return service.update(data, id, id_field)
 
@@ -432,7 +484,8 @@ class Routes:
             return service.patch(data, id, id_field)
 
         @_method_name('patch_' + methodtag)
-        def patch_data_na(id, data: Union[model, Annotated[dict, Body]], user_schema: str | None = Header(default=None)):
+        def patch_data_na(id, data: Union[model, Annotated[dict, Body]],
+                          user_schema: str | None = Header(default=None)):
             """No authentication """
             # db: Session = Depends(get_db)
             # db = next(get_db())
@@ -499,9 +552,9 @@ class Routes:
                                  tags=[tag])
         if HttpMethods.GET_BY_ATTRIBUTE.value in access_mode:
             router.add_api_route("/{attribute}/{value}",
-                                 get_by_attribute if self.oauth2_scheme else get_by_attribute_na,
+                                 get_by_attribute_paginated if self.oauth2_scheme else get_by_attribute_paginated_na,
                                  methods=["GET"],
-                                 response_model=list[Union[model, dict]],
+                                 response_model=Union[list[Union[model, dict]], dict[str, list|int]],
                                  response_model_exclude=response_model_exclude,
                                  status_code=status.HTTP_200_OK,
                                  tags=[tag])
@@ -577,26 +630,37 @@ class Service:
         self.session = session
         self.schema = schema
         self.db_schema = None
+        with self.session() as s:
+            self.engine = s.get_bind()
 
-    def set_dbschema(self, dbschema: dict[str|None, str]):
+    def set_dbschema(self, dbschema: dict[str | None, str]):
         self.db_schema = dbschema
 
-    def get_engine(self):
-        s = self.session()
-        try:
-            yield s.get_bind()
-        finally:
-            s.close()
+    # def get_engine(self):
+    #     s = self.session()
+    #     try:
+    #         yield s.get_bind()
+    #     finally:
+    #         s.close()
 
     def _get_db(self) -> Iterator[Session]:
+        # if self.db_schema:
+        #     engine = next(self.get_engine())
+        #     engine = engine.execution_options(schema_translate_map=self.db_schema)
+        #     self.session.configure(bind=engine)
+        # else:
+        #     engine = next(self.get_engine())
+        #     engine = engine.execution_options(schema_translate_map={None: "public"})
+        #     self.session.configure(bind=engine)
+
         if self.db_schema:
-            engine = next(self.get_engine())
-            engine = engine.execution_options(schema_translate_map=self.db_schema)
-            self.session.configure(bind=engine)
+            # engine = next(self.get_engine())
+            e = self.engine.execution_options(schema_translate_map=self.db_schema)
+            self.session.configure(bind=e)
         else:
-            engine = next(self.get_engine())
-            engine = engine.execution_options(schema_translate_map={None: "public"})
-            self.session.configure(bind=engine)
+            # engine = next(self.get_engine())
+            e = self.engine.execution_options(schema_translate_map={None: "public"})
+            self.session.configure(bind=e)
 
         db = self.session()
         try:
@@ -631,6 +695,17 @@ class Service:
         db = next(self._get_db())
         return read_by_attribute(db, schema=self.schema, attribute=attribute, value=value,
                                  **kwargs)
+
+    def get_by_attribute_paginated(self, value, attribute, page: int, limit: int, **kwargs) -> dict[str, list | int]:
+        additional_attribute: dict = kwargs.get('additional_attributes', None)
+        if additional_attribute is not None:
+            if not isinstance(additional_attribute, dict):
+                raise Exception("Arguments must be of type dict")
+
+        db = next(self._get_db())
+        return read_by_attribute_paginated(db, schema=self.schema, attribute=attribute, value=value, page=page
+                                           , limit=limit
+                                           , **kwargs)
 
     def update(self, obj: BaseModel | dict, id_value, *args) -> list:
         id_field = args[0] if args else 'id'
@@ -676,5 +751,3 @@ class Service:
 
         db = next(self._get_db())
         return patch(db, schema=self.schema, data=obj, attribute=attribute, value=value, **kwargs)
-
-

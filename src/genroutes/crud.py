@@ -105,6 +105,39 @@ def get_by_attribute(db: Session, schema: Type[declarative_base()], attribute, v
 
     return result_list
 
+def get_by_attribute_paginated(db: Session, schema: Type[declarative_base()], attribute, value, page, limit, **kwargs) -> dict[str, list|int]:
+    additional_attribute: dict = kwargs.get('additional_attributes', None)
+    if additional_attribute is not None:
+        if not isinstance(additional_attribute, dict):
+            raise Exception("get_by_attribute: Arguments must be of type dict")
+
+    additional_attribute = {} if additional_attribute is None else additional_attribute
+    all_filter_attributes = {attribute: value, **additional_attribute}
+
+    attr_names = [attr for attr in list(schema.__dict__.keys()) if
+                  not callable(getattr(schema, attr)) and not attr.startswith("__")]
+
+    # Access attribute by index
+    index = 0
+    attr_name = attr_names[index]
+    attr_value = getattr(schema, attr_name)
+
+    results = db.query(schema).order_by(attr_value) \
+        .filter(*filter_model(schema, all_filter_attributes)) \
+        .offset(page * limit) \
+        .limit(limit) \
+        .all()
+
+    count = db.query(schema).filter(*filter_model(schema, all_filter_attributes)).count()
+
+    # results = db.query(schema).filter(*filter_model(schema, all_filter_attributes)).all()
+    result_list = []
+
+    for r in results:
+        result_list.append(to_json(r))
+
+    return {'rows': result_list, 'count': count}
+
 
 def delete(db: Session, schema: Type[declarative_base()], row_id) -> str:
     db.query(schema).filter_by(id=row_id).delete(synchronize_session="fetch")
