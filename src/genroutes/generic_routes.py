@@ -158,6 +158,17 @@ def read(db: Session, schema):
     return obj
 
 
+def read_paginated(db: Session, schema, page: int, limit: int):
+    """Read all records of model from datasource"""
+    try:
+        obj = crud.get_all_paginated(db, schema, page, limit)
+    except BaseException as ex:
+        raise HTTPException(status_code=400, detail=str(ex.orig))
+    # print(obj)
+    db.close()
+    return obj
+
+
 def read_by_attribute(db: Session, schema, attribute, value, **kwargs):
     """Read records of model from datasource filtered by 'attribute = value' """
     additional_attribute: dict = kwargs.get('additional_attributes', None)
@@ -341,6 +352,7 @@ class Routes:
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return read(db, schema)
+            service.set_dbschema({None: user_schema})
             return service.get_all()
 
         @_method_name('get_' + methodtag)
@@ -352,6 +364,31 @@ class Routes:
 
             # Control db schema using header value
             service.set_dbschema({None: user_schema})
+            return service.get_all()
+
+        @_method_name('get_' + methodtag)
+        def get_paginated(page:int|None=None, limit:int|None=None, token=Depends(self.oauth2_scheme), user_schema: str | None = Header(default=None)):
+            # db: Session = Depends(get_db)
+            # db = next(get_db())
+            # return read(db, schema)
+            service.set_dbschema({None: user_schema})
+
+            if page is not None and limit is not None:
+                return service.get_all_paginated(page, limit)
+            return service.get_all()
+
+        @_method_name('get_' + methodtag)
+        def get_paginated_na(page:int|None=None, limit:int|None=None, user_schema: str | None = Header(default=None)):
+            """No authentication """
+            # db: Session = Depends(get_db)
+            # db = next(get_db())
+            # return read(db, schema)
+
+            # Control db schema using header value
+            service.set_dbschema({None: user_schema})
+
+            if page is not None and limit is not None:
+                return service.get_all_paginated(page, limit)
             return service.get_all()
 
         # @self.router.get("/{attribute}/{value}", response_model=list[schema]
@@ -537,8 +574,8 @@ class Routes:
                                  status_code=status.HTTP_201_CREATED,
                                  tags=[tag])
         if HttpMethods.GET.value in access_mode:
-            router.add_api_route("", get if self.oauth2_scheme else get_na, methods=["GET"],
-                                 response_model=list[Union[model, dict]],
+            router.add_api_route("", get_paginated if self.oauth2_scheme else get_paginated_na, methods=["GET"],
+                                 response_model=Union[list[Union[model, dict]], dict[str, list | int]],
                                  response_model_exclude=response_model_exclude,
                                  status_code=status.HTTP_200_OK,
                                  tags=[tag])
@@ -554,7 +591,7 @@ class Routes:
             router.add_api_route("/{attribute}/{value}",
                                  get_by_attribute_paginated if self.oauth2_scheme else get_by_attribute_paginated_na,
                                  methods=["GET"],
-                                 response_model=Union[list[Union[model, dict]], dict[str, list|int]],
+                                 response_model=Union[list[Union[model, dict]], dict[str, list | int]],
                                  response_model_exclude=response_model_exclude,
                                  status_code=status.HTTP_200_OK,
                                  tags=[tag])
@@ -679,6 +716,10 @@ class Service:
     def get_all(self) -> list:
         db = next(self._get_db())
         return read(db, schema=self.schema)
+
+    def get_all_paginated(self, page, limit) -> dict[str, list | int]:
+        db = next(self._get_db())
+        return read_paginated(db,page=page, limit=limit, schema=self.schema)
 
     def get_one(self, id_value, *args) -> list:
         id_field = args[0] if args else 'id'
