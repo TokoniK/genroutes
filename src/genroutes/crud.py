@@ -1,3 +1,6 @@
+import decimal
+import types
+import datetime
 from typing import Type, Union
 from pydantic import BaseModel
 from sqlalchemy.orm import declarative_base
@@ -8,12 +11,26 @@ from sqlalchemy.inspection import inspect
 import base64
 
 
+def is_compound_object(attribute):
+    built_in_types = (
+        int, float, str, bool, list, tuple, dict, set, frozenset, bytes, bytearray, memoryview, type(None),
+        types.FunctionType, types.BuiltinFunctionType, types.MethodType, types.ModuleType, datetime.date,
+        datetime.datetime,
+        decimal.Decimal)
+    return not isinstance(attribute, built_in_types) and hasattr(attribute, '__class__')
+
+
 def to_json(obj) -> dict:
     """" Safe conversion for byte to base64 for HTTP response
     """
-    return {i.key: getattr(obj, i.key) if not type(getattr(obj, i.key)) == bytes
-    else base64.b64encode(getattr(obj, i.key)).decode('utf-8')
-            for i in inspect(obj).mapper.column_attrs}
+
+    return {k: getattr(obj, k) if not type(getattr(obj, k)) == bytes
+            else base64.b64encode(getattr(obj, k)).decode('utf-8')
+            for k, v in inspect(obj).mapper._props.items()}
+
+    # return {i.key: getattr(obj, i.key) if not type(getattr(obj, i.key)) == bytes
+    # else base64.b64encode(getattr(obj, i.key)).decode('utf-8')
+    #         for i in inspect(obj).mapper.column_attrs}
 
 
 def from_json(obj: dict) -> dict:
@@ -26,8 +43,13 @@ def get_all(db: Session, schema) -> list[dict]:
     results = db.query(schema).all()
     result_list = []
 
+    # for r in results:
+    #     result_list.append(to_json(r))
+
     for r in results:
-        result_list.append(to_json(r))
+        obj = to_json(r)
+        res = {k: v if not is_compound_object(v) else v.to_json() for k, v in obj.items()}
+        result_list.append(res)
 
     return result_list
 
@@ -49,17 +71,27 @@ def get_all_paginated(db: Session, schema, page, limit) -> dict[str, list | int]
     count = db.query(schema).count()
     result_list = []
 
+    # for r in results:
+    #     result_list.append(to_json(r))
+
     for r in results:
-        result_list.append(to_json(r))
+        obj = to_json(r)
+        res = {k: v if not is_compound_object(v) else v.to_json() for k, v in obj.items()}
+        result_list.append(res)
 
     return {'rows': result_list, 'count': count}
 
 
-def get_by_id(db: Session, schema: Type[declarative_base()], id_value) -> dict | None:
-    results = db.query(schema).filter(schema.id == id_value).first()
+def get_by_id(db: Session, schema: Type[declarative_base()], id_field, id_value) -> dict | None:
+    all_filter_attributes = {id_field: id_value}
+    results = db.query(schema).filter(*filter_model(schema, all_filter_attributes)).first()
     if results is None:
         return results
-    return to_json(results)  # results.__dict__
+
+    obj = to_json(results)
+    res = {k: v if not is_compound_object(v) else v.to_json() for k, v in obj.items()}
+
+    return res  # to_json(results)  # results.__dict__
 
 
 def create(db: Session, schema: Type[declarative_base()], data: BaseModel) -> dict:
@@ -123,8 +155,13 @@ def get_by_attribute(db: Session, schema: Type[declarative_base()], attribute, v
     results = db.query(schema).filter(*filter_model(schema, all_filter_attributes)).all()
     result_list = []
 
+    # for r in results:
+    #     result_list.append(to_json(r))
+
     for r in results:
-        result_list.append(to_json(r))
+        obj = to_json(r)
+        res = {k: v if not is_compound_object(v) else v.to_json() for k, v in obj.items()}
+        result_list.append(res)
 
     return result_list
 
@@ -158,8 +195,13 @@ def get_by_attribute_paginated(db: Session, schema: Type[declarative_base()], at
     # results = db.query(schema).filter(*filter_model(schema, all_filter_attributes)).all()
     result_list = []
 
+    # for r in results:
+    #     result_list.append(to_json(r))
+
     for r in results:
-        result_list.append(to_json(r))
+        obj = to_json(r)
+        res = {k: v if not is_compound_object(v) else v.to_json() for k, v in obj.items()}
+        result_list.append(res)
 
     return {'rows': result_list, 'count': count}
 

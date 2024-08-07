@@ -8,7 +8,7 @@ import os
 import psycopg2
 
 
-def generate_models(database, username, hostname, port, password, schemaname):
+def generate_models(database, username, hostname, port, password, schemaname, full):
     conn = None
     try:
         conn = psycopg2.connect(
@@ -75,12 +75,12 @@ def generate_models(database, username, hostname, port, password, schemaname):
                    "SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)\n\n"
                    "DatabaseTable = declarative_base()")
 
-    metafactory.tables(cur, schemaname)
+    metafactory.tables(cur, schemaname, full)
 
 
 class metafactory:
     @staticmethod
-    def tables(cur, schema="public"):
+    def tables(cur, schema="public", full=False):
         cur.execute("""SELECT * FROM  pg_tables WHERE schemaname = '%s'""" % schema)
         ts = cur.fetchall()
         models = ""
@@ -109,7 +109,7 @@ class metafactory:
             # classes += "class %s(DatabaseTable):\n    __tablename__ = u'%s'%s%s\n\n%s" % (className, tableName, colums, br, metafactory.toJsonMethod(cur, t[1]))
             model_class = "class %s(DatabaseTable):\n    __tablename__ = u'%s'%s%s\n\n%s\n" % (
                 singularClassName, tableName, colums, br,
-                metafactory.toJsonMethod(cur, t[1]))
+                metafactory.toJsonMethodNew(cur, t[1])  if full else metafactory.toJsonMethod(cur, t[1]) )
             print(model_class)
 
             # file_path = os.path.abspath(schemas_path + '/%s.py' % singularClassName.lower())
@@ -291,8 +291,8 @@ from datetime import datetime
             ## foreignkeys += "    %s = relationship('%s', primaryjoin='%s.%s == %s.%s')" % (
             ##     var, parentTable, tableClass, col, parentTable, parentCol)
 
-            # foreignkeys += "    %s = relationship('%s', primaryjoin='%s.%s == %s.%s')" % (
-            #     var, singularParentTable, singularTableClass, col, singularParentTable, parentCol)
+            foreignkeys += "    %s = relationship('%s', primaryjoin='%s.%s == %s.%s')" % (
+                var, singularParentTable, singularTableClass, col, singularParentTable, parentCol)
 
             ## foreignkeys += "    %s = relationship('%s')" % (var, parentTable)
 
@@ -439,7 +439,7 @@ from datetime import datetime
                           INNER JOIN pg_type ON (pg_attribute.atttypid = pg_type.oid)
                           LEFT OUTER JOIN pg_attrdef ON (pg_attribute.attrelid = pg_attrdef.adrelid AND pg_attribute.attnum=pg_attrdef.adnum)
                           LEFT OUTER JOIN pg_index ON (pg_class.oid = pg_index.indrelid AND pg_attribute.attnum = any(pg_index.indkey))
-                          LEFT OUTER JOIN pg_constraint ON (pg_constraint.conrelid = pg_class.oid AND pg_constraint.conkey[1]= pg_attribute.attnum)
+                          LEFT OUTER JOIN (select * from pg_constraint order by contype desc) pg_constraint ON (pg_constraint.conrelid = pg_class.oid AND pg_constraint.conkey[1]= pg_attribute.attnum)
                          WHERE pg_class.relname = '%s'
                          AND pg_attribute.attnum>0
                     """ % tablename)
@@ -490,10 +490,58 @@ from datetime import datetime
             if c[8] == "p":
                 cols += ", primary_key=True"
             elif c[8] == "f":
-                pass
-                # cols += ", ForeignKey('%s')" % metafactory.isFk(cur, tablename, c[1])
+                # pass
+                print('fk.....', c[1])
+                cols += ", ForeignKey('%s')" % metafactory.isFk(cur, tablename, c[1])
             if c[5]:
                 cols += ", nullable=False"
             cols += ")"
         cols = "\n\n    # column definitions\n" + cols
         return cols
+
+    def toJsonMethodNew(cur, tablename):
+        metod = "    def to_json(self):\n        obj = {"
+        cur.execute("""
+                        SELECT DISTINCT ON (attnum) pg_attribute.attnum,pg_attribute.attname as column_name,
+                           format_type(pg_attribute.atttypid, pg_attribute.atttypmod) as data_type,
+                           pg_attribute.attlen as lenght, pg_attribute.atttypmod as lenght_var,
+                           pg_attribute.attnotnull as is_notnull,
+                           pg_attribute.atthasdef as has_default,
+                           --adsrc as default_value,
+                           '' as default_value,
+                           pg_constraint.contype
+                        FROM
+                          pg_attribute
+                          INNER JOIN pg_class ON (pg_attribute.attrelid = pg_class.oid)
+                          INNER JOIN pg_type ON (pg_attribute.atttypid = pg_type.oid)
+                          LEFT OUTER JOIN pg_attrdef ON (pg_attribute.attrelid = pg_attrdef.adrelid AND pg_attribute.attnum=pg_attrdef.adnum)
+                          LEFT OUTER JOIN pg_index ON (pg_class.oid = pg_index.indrelid AND pg_attribute.attnum = any(pg_index.indkey))
+                          LEFT OUTER JOIN pg_constraint ON (pg_constraint.conrelid = pg_class.oid AND pg_constraint.conkey[1]= pg_attribute.attnum)
+                         WHERE pg_class.relname = '%s'
+                         AND pg_attribute.attnum>0
+                    """ % tablename)
+        cs = cur.fetchall()
+        for c in cs:
+            if re.search("timestamp", c[2]):
+                metod += ("\n            '%s': self.%s" % (
+                    c[1], c[1])) + ".strftime('%a, %d %b %Y %H:%M:%S +0000') if " + ("self.%s else None," % (c[1]))
+            else:
+                metod += "\n            '%s': self.%s," % (c[1], c[1])
+
+        # metod += "\n        }\n        return obj  # return json.dumps(obj)"
+
+        fks = metafactory.forein_keys(cur, tablename)
+        # p = inflect.engine()
+        # foreignkeys = ""
+        for f in fks:
+            # if foreignkeys != "":
+            #     foreignkeys += "\n"
+            col = str(f[1])
+            tableClass = metafactory.buildClassName(tablename)  # str(tablename).title().replace("_", "")
+            var = tableClass + ''.join(col.rsplit('_id', 1)).title().replace('_', '')
+
+            metod += "\n            '%s': self.%s.to_json()," % (var, var)
+
+        metod += "\n        }\n        return obj  # return json.dumps(obj)"
+
+        return metod

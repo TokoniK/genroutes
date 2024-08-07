@@ -184,6 +184,16 @@ def read_by_attribute(db: Session, schema, attribute, value, **kwargs):
     return obj
 
 
+def read_by_id(db: Session, schema, id_field, value):
+    """Read records of model from datasource filtered by 'attribute = value' """
+    try:
+        obj = crud.get_by_id(db, schema, id_field, value)
+    except BaseException as ex:
+        raise HTTPException(status_code=400, detail=str(ex.orig))
+    db.close()
+    return obj
+
+
 def read_by_attribute_paginated(db: Session, schema, attribute, value, page, limit, **kwargs):
     """Read records of model from datasource filtered by 'attribute = value' """
     additional_attribute: dict = kwargs.get('additional_attributes', None)
@@ -367,7 +377,8 @@ class Routes:
             return service.get_all()
 
         @_method_name('get_' + methodtag)
-        def get_paginated(page:int|None=None, limit:int|None=None, token=Depends(self.oauth2_scheme), user_schema: str | None = Header(default=None)):
+        def get_paginated(page: int | None = None, limit: int | None = None, token=Depends(self.oauth2_scheme),
+                          user_schema: str | None = Header(default=None)):
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return read(db, schema)
@@ -378,7 +389,8 @@ class Routes:
             return service.get_all()
 
         @_method_name('get_' + methodtag)
-        def get_paginated_na(page:int|None=None, limit:int|None=None, user_schema: str | None = Header(default=None)):
+        def get_paginated_na(page: int | None = None, limit: int | None = None,
+                             user_schema: str | None = Header(default=None)):
             """No authentication """
             # db: Session = Depends(get_db)
             # db = next(get_db())
@@ -463,7 +475,7 @@ class Routes:
 
             # Control db schema using header value
             service.set_dbschema({None: user_schema})
-            return service.get_by_attribute(id, id_field)
+            return service.get_one(id, id_field)
 
         @_method_name('get_' + methodtag + "_by_id")
         def get_by_id_na(id, user_schema: str | None = Header(default=None)):
@@ -474,7 +486,7 @@ class Routes:
 
             # Control db schema using header value
             service.set_dbschema({None: user_schema})
-            return service.get_by_attribute(id, id_field)
+            return service.get_one(id, id_field)
 
         # @self.router.put("/{id}", response_model=schemaresponse_model_exclude=response_model_exclude,)
         @_method_name('update_' + methodtag)
@@ -583,7 +595,7 @@ class Routes:
             router.add_api_route("/{id}",
                                  get_by_id if self.oauth2_scheme else get_by_id_na,
                                  methods=["GET"],
-                                 response_model=list[Union[model, dict]],
+                                 response_model=Union[model, dict],
                                  response_model_exclude=response_model_exclude,
                                  status_code=status.HTTP_200_OK,
                                  tags=[tag])
@@ -719,13 +731,12 @@ class Service:
 
     def get_all_paginated(self, page, limit) -> dict[str, list | int]:
         db = next(self._get_db())
-        return read_paginated(db,page=page, limit=limit, schema=self.schema)
+        return read_paginated(db, page=page, limit=limit, schema=self.schema)
 
-    def get_one(self, id_value, *args) -> list:
-        id_field = args[0] if args else 'id'
+    def get_one(self, id_value, id_field='id') -> dict | None:
 
         db = next(self._get_db())
-        return read_by_attribute(db, schema=self.schema, attribute=id_field, value=id_value)
+        return read_by_id(db, schema=self.schema, id_field=id_field, value=id_value)
 
     def get_by_attribute(self, value, attribute, **kwargs) -> list:
         additional_attribute: dict = kwargs.get('additional_attributes', None)
