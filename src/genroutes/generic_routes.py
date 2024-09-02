@@ -4,12 +4,14 @@ from typing import Annotated, Union, Type, Dict
 from typing import Iterator
 
 from fastapi import APIRouter, HTTPException, Depends, Response, status, Body, Header, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 import psycopg2
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import sessionmaker
+from starlette.responses import JSONResponse
 
 from . import crud
 from .cli.metafactory import generate_models
@@ -346,7 +348,9 @@ class Routes:
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return create_any(db, schema, data)
-            return service.create_any(data)
+            # return service.create_any(data)
+            service.set_dbschema({None: user_schema})
+            return JSONResponse(jsonable_encoder(service.create_any(data), exclude=response_model_exclude))
 
         @_method_name('create_' + methodtag)
         def create_na(data: model_create, user_schema: str | None = Header(default=None)):
@@ -354,7 +358,9 @@ class Routes:
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return create_any(db, schema, data)
-            return service.create_any(data)
+            # return service.create_any(data)
+            service.set_dbschema({None: user_schema})
+            return JSONResponse(jsonable_encoder(service.create_any(data), exclude=response_model_exclude))
 
         # @self.router.get("", response_model=list[schema]response_model_exclude=response_model_exclude,)
         @_method_name('get_' + methodtag)
@@ -363,7 +369,7 @@ class Routes:
             # db = next(get_db())
             # return read(db, schema)
             service.set_dbschema({None: user_schema})
-            return service.get_all()
+            return JSONResponse(jsonable_encoder(service.get_all(), exclude=response_model_exclude))
 
         @_method_name('get_' + methodtag)
         def get_na(user_schema: str | None = Header(default=None)):
@@ -373,8 +379,10 @@ class Routes:
             # return read(db, schema)
 
             # Control db schema using header value
+            # service.set_dbschema({None: user_schema})
+            # return service.get_all()
             service.set_dbschema({None: user_schema})
-            return service.get_all()
+            return JSONResponse(jsonable_encoder(service.get_all(), exclude=response_model_exclude))
 
         @_method_name('get_' + methodtag)
         def get_paginated(page: int | None = None, limit: int | None = None, token=Depends(self.oauth2_scheme),
@@ -385,8 +393,11 @@ class Routes:
             service.set_dbschema({None: user_schema})
 
             if page is not None and limit is not None:
-                return service.get_all_paginated(page, limit)
-            return service.get_all()
+                # return service.get_all_paginated(page, limit)
+                return JSONResponse(jsonable_encoder(service.get_all_paginated(page, limit),
+                                                     exclude=response_model_exclude))
+            # return service.get_all()
+            return JSONResponse(jsonable_encoder(service.get_all(), exclude=response_model_exclude))
 
         @_method_name('get_' + methodtag)
         def get_paginated_na(page: int | None = None, limit: int | None = None,
@@ -400,8 +411,11 @@ class Routes:
             service.set_dbschema({None: user_schema})
 
             if page is not None and limit is not None:
-                return service.get_all_paginated(page, limit)
-            return service.get_all()
+                # return service.get_all_paginated(page, limit)
+                return JSONResponse(jsonable_encoder(service.get_all_paginated(page, limit),
+                                                     exclude=response_model_exclude))
+            # return service.get_all()
+            return JSONResponse(jsonable_encoder(service.get_all(), exclude=response_model_exclude))
 
         # @self.router.get("/{attribute}/{value}", response_model=list[schema]
         #                   response_model_exclude=response_model_exclude,)
@@ -416,7 +430,10 @@ class Routes:
             additional_attributes = {'additional_attributes': param} if param else {}
             # Control db schema using header value
             service.set_dbschema({None: user_schema})
-            return service.get_by_attribute(value, attribute, **additional_attributes)
+            # return service.get_by_attribute(value, attribute, **additional_attributes)
+            return JSONResponse(jsonable_encoder(service.get_by_attribute(value, attribute, **additional_attributes),
+                                                 exclude=response_model_exclude))
+
 
         @_method_name('get_' + methodtag + "_by_attribute")
         def get_by_attribute_na(attribute, value, request: Request, user_schema: str | None = Header(default=None)):
@@ -429,7 +446,9 @@ class Routes:
             additional_attributes = {'additional_attributes': param} if param else {}
             # Control db schema using header value
             service.set_dbschema({None: user_schema})
-            return service.get_by_attribute(value, attribute, **additional_attributes)
+            # return service.get_by_attribute(value, attribute, **additional_attributes)
+            return JSONResponse(jsonable_encoder(service.get_by_attribute(value, attribute, **additional_attributes),
+                                                 exclude=response_model_exclude))
 
         @_method_name('get_' + methodtag + "_by_attribute")
         def get_by_attribute_paginated(attribute, value, request: Request, token=Depends(self.oauth2_scheme),
@@ -445,8 +464,12 @@ class Routes:
             service.set_dbschema({None: user_schema})
 
             if not page is None and not limit is None:
-                return service.get_by_attribute_paginated(value, attribute, page, limit, **additional_attributes)
-            return service.get_by_attribute(value, attribute, **additional_attributes)
+                # return service.get_by_attribute_paginated(value, attribute, page, limit, **additional_attributes)
+                return JSONResponse(jsonable_encoder(service.get_by_attribute_paginated(
+                    value, attribute, page, limit, **additional_attributes), exclude=response_model_exclude))
+            # return service.get_by_attribute(value, attribute, **additional_attributes)
+            return JSONResponse(jsonable_encoder(service.get_by_attribute(value, attribute, **additional_attributes),
+                                                 exclude=response_model_exclude))
 
         @_method_name('get_' + methodtag + "_by_attribute")
         def get_by_attribute_paginated_na(attribute, value
@@ -464,8 +487,12 @@ class Routes:
             service.set_dbschema({None: user_schema})
 
             if not page is None and not limit is None:
-                return service.get_by_attribute_paginated(value, attribute, page, limit, **additional_attributes)
-            return service.get_by_attribute(value, attribute, **additional_attributes)
+                # return service.get_by_attribute_paginated(value, attribute, page, limit, **additional_attributes)
+                return JSONResponse(jsonable_encoder(service.get_by_attribute_paginated(
+                    value, attribute, page, limit, **additional_attributes), exclude=response_model_exclude))
+            # return service.get_by_attribute(value, attribute, **additional_attributes)
+            return JSONResponse(jsonable_encoder(service.get_by_attribute(value, attribute, **additional_attributes),
+                                                 exclude=response_model_exclude))
 
         @_method_name('get_' + methodtag + "_by_id")
         def get_by_id(id, token=Depends(self.oauth2_scheme), user_schema: str | None = Header(default=None)):
@@ -475,7 +502,10 @@ class Routes:
 
             # Control db schema using header value
             service.set_dbschema({None: user_schema})
-            return service.get_one(id, id_field)
+            # return service.get_one(id, id_field)
+            return JSONResponse(jsonable_encoder(service.get_one(id, id_field), exclude=response_model_exclude))
+
+
 
         @_method_name('get_' + methodtag + "_by_id")
         def get_by_id_na(id, user_schema: str | None = Header(default=None)):
@@ -486,7 +516,8 @@ class Routes:
 
             # Control db schema using header value
             service.set_dbschema({None: user_schema})
-            return service.get_one(id, id_field)
+            # return service.get_one(id, id_field)
+            return JSONResponse(jsonable_encoder(service.get_one(id, id_field), exclude=response_model_exclude))
 
         # @self.router.put("/{id}", response_model=schemaresponse_model_exclude=response_model_exclude,)
         @_method_name('update_' + methodtag)
@@ -498,7 +529,9 @@ class Routes:
 
             # Control db schema using header value
             service.set_dbschema({None: user_schema})
-            return service.update(data, id, id_field)
+            # return service.update(data, id, id_field)
+            return JSONResponse(jsonable_encoder(service.update(data, id, id_field), exclude=response_model_exclude))
+
 
         @_method_name('update_' + methodtag)
         def update_data_na(id, data: model, user_schema: str | None = Header(default=None)):
@@ -509,7 +542,9 @@ class Routes:
 
             # Control db schema using header value
             service.set_dbschema({None: user_schema})
-            return service.update(data, id, id_field)
+            # return service.update(data, id, id_field)
+            return JSONResponse(jsonable_encoder(service.update(data, id, id_field), exclude=response_model_exclude))
+
 
         @_method_name('patch_' + methodtag)
         def patch_data(id, data: Union[model, Annotated[dict, Body]],
@@ -530,7 +565,9 @@ class Routes:
 
             # Control db schema using header value
             service.set_dbschema({None: user_schema})
-            return service.patch(data, id, id_field)
+            # return service.patch(data, id, id_field)
+            return JSONResponse(jsonable_encoder(service.patch(data, id, id_field), exclude=response_model_exclude))
+
 
         @_method_name('patch_' + methodtag)
         def patch_data_na(id, data: Union[model, Annotated[dict, Body]],
@@ -552,7 +589,9 @@ class Routes:
 
             # Control db schema using header value
             service.set_dbschema({None: user_schema})
-            return service.patch(data, id, id_field)
+            # return service.patch(data, id, id_field)
+            return JSONResponse(jsonable_encoder(service.patch(data, id, id_field), exclude=response_model_exclude))
+
 
         # @self.router.delete("/{id}")
         @_method_name('delete_' + methodtag)
@@ -564,7 +603,8 @@ class Routes:
 
             # Control db schema using header value
             service.set_dbschema({None: user_schema})
-            return service.delete(id, id_field)
+            # return service.delete(id, id_field)
+            return JSONResponse(jsonable_encoder(service.delete(id, id_field), exclude=response_model_exclude))
 
         @_method_name('delete_' + methodtag)
         def delete_data_na(id, user_schema: str | None = Header(default=None)):
@@ -575,7 +615,9 @@ class Routes:
 
             # Control db schema using header value
             service.set_dbschema({None: user_schema})
-            return service.delete(id, id_field)
+            # return service.delete(id, id_field)
+            return JSONResponse(jsonable_encoder(service.delete(id, id_field), exclude=response_model_exclude))
+
 
         # endregion crud_methods
 
