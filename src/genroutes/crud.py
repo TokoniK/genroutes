@@ -54,7 +54,7 @@ def get_all(db: Session, schema) -> list[dict]:
     return result_list
 
 
-def get_all_paginated(db: Session, schema, page, limit) -> dict[str, list | int]:
+def get_all_paginated(db: Session, schema, page, limit) -> dict[str, Union[list, int]]:
     attr_names = [attr for attr in list(schema.__dict__.keys()) if
                   not callable(getattr(schema, attr)) and not attr.startswith("__")]
 
@@ -82,7 +82,7 @@ def get_all_paginated(db: Session, schema, page, limit) -> dict[str, list | int]
     return {'rows': result_list, 'count': count}
 
 
-def get_by_id(db: Session, schema: Type[declarative_base()], id_field, id_value) -> dict | None:
+def get_by_id(db: Session, schema: Type[declarative_base()], id_field, id_value) -> Union[dict, None]:
     all_filter_attributes = {id_field: id_value}
     results = db.query(schema).filter(*filter_model(schema, all_filter_attributes)).first()
     if results is None:
@@ -167,7 +167,7 @@ def get_by_attribute(db: Session, schema: Type[declarative_base()], attribute, v
 
 
 def get_by_attribute_paginated(db: Session, schema: Type[declarative_base()], attribute, value, page, limit,
-                               **kwargs) -> dict[str, list | int]:
+                               **kwargs) -> dict[str, Union[list, int]]:
     additional_attribute: dict = kwargs.get('additional_attributes', None)
     if additional_attribute is not None:
         if not isinstance(additional_attribute, dict):

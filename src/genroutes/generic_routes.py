@@ -296,7 +296,7 @@ class Routes:
                 self.oauth2_scheme = OAuth2PasswordBearer(tokenUrl=auth_route)
 
     def get_router(self, path: str, schema,
-                   model: BaseModel | Type[BaseModel], model_create: BaseModel | Type[BaseModel], **kwargs):
+                   model: Union[BaseModel, Type[BaseModel]], model_create: Union[BaseModel, Type[BaseModel]], **kwargs):
         """ Generate and return router.
 
             :param path: endpoint for routes.
@@ -344,7 +344,7 @@ class Routes:
 
         @_method_name('create_' + methodtag)
         def create(data: model_create,
-                   token=Depends(self.oauth2_scheme), user_schema: str | None = Header(default=None)):
+                   token=Depends(self.oauth2_scheme), user_schema: Union[str, None] = Header(default=None)):
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return create_any(db, schema, data)
@@ -353,7 +353,7 @@ class Routes:
             return JSONResponse(jsonable_encoder(service.create_any(data), exclude=response_model_exclude))
 
         @_method_name('create_' + methodtag)
-        def create_na(data: model_create, user_schema: str | None = Header(default=None)):
+        def create_na(data: model_create, user_schema: Union[str, None] = Header(default=None)):
             """No authentication """
             # db: Session = Depends(get_db)
             # db = next(get_db())
@@ -364,7 +364,7 @@ class Routes:
 
         # @self.router.get("", response_model=list[schema]response_model_exclude=response_model_exclude,)
         @_method_name('get_' + methodtag)
-        def get(token=Depends(self.oauth2_scheme), user_schema: str | None = Header(default=None)):
+        def get(token=Depends(self.oauth2_scheme), user_schema: Union[str, None] = Header(default=None)):
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return read(db, schema)
@@ -372,7 +372,7 @@ class Routes:
             return JSONResponse(jsonable_encoder(service.get_all(), exclude=response_model_exclude))
 
         @_method_name('get_' + methodtag)
-        def get_na(user_schema: str | None = Header(default=None)):
+        def get_na(user_schema: Union[str, None] = Header(default=None)):
             """No authentication """
             # db: Session = Depends(get_db)
             # db = next(get_db())
@@ -385,8 +385,8 @@ class Routes:
             return JSONResponse(jsonable_encoder(service.get_all(), exclude=response_model_exclude))
 
         @_method_name('get_' + methodtag)
-        def get_paginated(page: int | None = None, limit: int | None = None, token=Depends(self.oauth2_scheme),
-                          user_schema: str | None = Header(default=None)):
+        def get_paginated(page: Union[int, None] = None, limit: Union[int, None] = None, token=Depends(self.oauth2_scheme),
+                          user_schema: Union[str, None] = Header(default=None)):
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return read(db, schema)
@@ -400,8 +400,8 @@ class Routes:
             return JSONResponse(jsonable_encoder(service.get_all(), exclude=response_model_exclude))
 
         @_method_name('get_' + methodtag)
-        def get_paginated_na(page: int | None = None, limit: int | None = None,
-                             user_schema: str | None = Header(default=None)):
+        def get_paginated_na(page: Union[int, None] = None, limit: Union[int, None] = None,
+                             user_schema: Union[str, None] = Header(default=None)):
             """No authentication """
             # db: Session = Depends(get_db)
             # db = next(get_db())
@@ -421,7 +421,7 @@ class Routes:
         #                   response_model_exclude=response_model_exclude,)
         @_method_name('get_' + methodtag + "_by_attribute")
         def get_by_attribute(attribute, value, request: Request, token=Depends(self.oauth2_scheme),
-                             user_schema: str | None = Header(default=None)):
+                             user_schema: Union[str, None] = Header(default=None)):
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return read_by_attribute(db, schema, attribute, value)
@@ -436,7 +436,7 @@ class Routes:
 
 
         @_method_name('get_' + methodtag + "_by_attribute")
-        def get_by_attribute_na(attribute, value, request: Request, user_schema: str | None = Header(default=None)):
+        def get_by_attribute_na(attribute, value, request: Request, user_schema: Union[str, None] = Header(default=None)):
             """No authentication """
             # db: Session = Depends(get_db)
             # db = next(get_db())
@@ -452,8 +452,8 @@ class Routes:
 
         @_method_name('get_' + methodtag + "_by_attribute")
         def get_by_attribute_paginated(attribute, value, request: Request, token=Depends(self.oauth2_scheme),
-                                       user_schema: str | None = Header(default=None), page: int | None = None,
-                                       limit: int | None = None):
+                                       user_schema: Union[str, None] = Header(default=None), page: Union[int, None] = None,
+                                       limit: Union[int, None] = None):
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return read_by_attribute(db, schema, attribute, value)
@@ -474,8 +474,8 @@ class Routes:
         @_method_name('get_' + methodtag + "_by_attribute")
         def get_by_attribute_paginated_na(attribute, value
                                           , request: Request
-                                          , user_schema: str | None = Header(default=None)
-                                          , page: int | None = None, limit: int | None = None):
+                                          , user_schema: Union[str, None] = Header(default=None)
+                                          , page: Union[int, None] = None, limit: Union[int, None] = None):
             """No authentication """
             # db: Session = Depends(get_db)
             # db = next(get_db())
@@ -495,7 +495,7 @@ class Routes:
                                                  exclude=response_model_exclude))
 
         @_method_name('get_' + methodtag + "_by_id")
-        def get_by_id(id, token=Depends(self.oauth2_scheme), user_schema: str | None = Header(default=None)):
+        def get_by_id(id, token=Depends(self.oauth2_scheme), user_schema: Union[str, None] = Header(default=None)):
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return read_by_attribute(db, schema, id_field, value)
@@ -508,7 +508,7 @@ class Routes:
 
 
         @_method_name('get_' + methodtag + "_by_id")
-        def get_by_id_na(id, user_schema: str | None = Header(default=None)):
+        def get_by_id_na(id, user_schema: Union[str, None] = Header(default=None)):
             """No authentication """
             # db: Session = Depends(get_db)
             # db = next(get_db())
@@ -522,7 +522,7 @@ class Routes:
         # @self.router.put("/{id}", response_model=schemaresponse_model_exclude=response_model_exclude,)
         @_method_name('update_' + methodtag)
         def update_data(id, data: model, token=Depends(self.oauth2_scheme),
-                        user_schema: str | None = Header(default=None)):
+                        user_schema: Union[str, None] = Header(default=None)):
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return update(db, schema, data, id_field, id_)
@@ -534,7 +534,7 @@ class Routes:
 
 
         @_method_name('update_' + methodtag)
-        def update_data_na(id, data: model, user_schema: str | None = Header(default=None)):
+        def update_data_na(id, data: model, user_schema: Union[str, None] = Header(default=None)):
             """No authentication """
             # db: Session = Depends(get_db)
             # db = next(get_db())
@@ -548,7 +548,7 @@ class Routes:
 
         @_method_name('patch_' + methodtag)
         def patch_data(id, data: Union[model, Annotated[dict, Body]],
-                       token=Depends(self.oauth2_scheme), user_schema: str | None = Header(default=None)):
+                       token=Depends(self.oauth2_scheme), user_schema: Union[str, None] = Header(default=None)):
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return patch_data_na(id_, data, db)
@@ -571,7 +571,7 @@ class Routes:
 
         @_method_name('patch_' + methodtag)
         def patch_data_na(id, data: Union[model, Annotated[dict, Body]],
-                          user_schema: str | None = Header(default=None)):
+                          user_schema: Union[str, None] = Header(default=None)):
             """No authentication """
             # db: Session = Depends(get_db)
             # db = next(get_db())
@@ -596,7 +596,7 @@ class Routes:
         # @self.router.delete("/{id}")
         @_method_name('delete_' + methodtag)
         def delete_data(id,
-                        token=Depends(self.oauth2_scheme), user_schema: str | None = Header(default=None)):
+                        token=Depends(self.oauth2_scheme), user_schema: Union[str, None] = Header(default=None)):
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return delete(db, schema, id_field, id_)
@@ -607,7 +607,7 @@ class Routes:
             return JSONResponse(jsonable_encoder(service.delete(id, id_field), exclude=response_model_exclude))
 
         @_method_name('delete_' + methodtag)
-        def delete_data_na(id, user_schema: str | None = Header(default=None)):
+        def delete_data_na(id, user_schema: Union[str, None] = Header(default=None)):
             """No authentication """
             # db: Session = Depends(get_db)
             # db = next(get_db())
@@ -629,7 +629,7 @@ class Routes:
                                  tags=[tag])
         if HttpMethods.GET.value in access_mode:
             router.add_api_route("", get_paginated if self.oauth2_scheme else get_paginated_na, methods=["GET"],
-                                 response_model=Union[list[Union[model, dict]], dict[str, list | int]],
+                                 response_model=Union[list[Union[model, dict]], dict[str, Union[list, int]]],
                                  response_model_exclude=response_model_exclude,
                                  status_code=status.HTTP_200_OK,
                                  tags=[tag])
@@ -645,7 +645,7 @@ class Routes:
             router.add_api_route("/{attribute}/{value}",
                                  get_by_attribute_paginated if self.oauth2_scheme else get_by_attribute_paginated_na,
                                  methods=["GET"],
-                                 response_model=Union[list[Union[model, dict]], dict[str, list | int]],
+                                 response_model=Union[list[Union[model, dict]], dict[str, Union[list, int]]],
                                  response_model_exclude=response_model_exclude,
                                  status_code=status.HTTP_200_OK,
                                  tags=[tag])
@@ -724,7 +724,7 @@ class Service:
         with self.session() as s:
             self.engine = s.get_bind()
 
-    def set_dbschema(self, dbschema: dict[str | None, str]):
+    def set_dbschema(self, dbschema: dict[Union[str, None], str]):
         self.db_schema = dbschema
 
     # def get_engine(self):
@@ -759,11 +759,11 @@ class Service:
         finally:
             db.close()
 
-    def create_any(self, obj: BaseModel | dict) -> dict:
+    def create_any(self, obj: Union[BaseModel, dict]) -> dict:
         db = next(self._get_db())
         return create_any(db, schema=self.schema, data=obj)
 
-    def create(self, obj: BaseModel | dict, key_attribute, *args) -> dict:
+    def create(self, obj: Union[BaseModel, dict], key_attribute, *args) -> dict:
         db = next(self._get_db())
         return create(db, schema=self.schema, key_attribute=key_attribute, data=obj, *args)
 
@@ -771,11 +771,11 @@ class Service:
         db = next(self._get_db())
         return read(db, schema=self.schema)
 
-    def get_all_paginated(self, page, limit) -> dict[str, list | int]:
+    def get_all_paginated(self, page, limit) -> dict[str, Union[list, int]]:
         db = next(self._get_db())
         return read_paginated(db, page=page, limit=limit, schema=self.schema)
 
-    def get_one(self, id_value, id_field='id') -> dict | None:
+    def get_one(self, id_value, id_field='id') -> Union[dict, None]:
 
         db = next(self._get_db())
         return read_by_id(db, schema=self.schema, id_field=id_field, value=id_value)
@@ -790,7 +790,7 @@ class Service:
         return read_by_attribute(db, schema=self.schema, attribute=attribute, value=value,
                                  **kwargs)
 
-    def get_by_attribute_paginated(self, value, attribute, page: int, limit: int, **kwargs) -> dict[str, list | int]:
+    def get_by_attribute_paginated(self, value, attribute, page: int, limit: int, **kwargs) -> dict[str, Union[list, int]]:
         additional_attribute: dict = kwargs.get('additional_attributes', None)
         if additional_attribute is not None:
             if not isinstance(additional_attribute, dict):
@@ -801,13 +801,13 @@ class Service:
                                            , limit=limit
                                            , **kwargs)
 
-    def update(self, obj: BaseModel | dict, id_value, *args) -> list:
+    def update(self, obj: Union[BaseModel, dict], id_value, *args) -> list:
         id_field = args[0] if args else 'id'
 
         db = next(self._get_db())
         return update(db, schema=self.schema, data=obj, attribute=id_field, value=id_value)
 
-    def update_by_attribute(self, obj: BaseModel | dict, value, attribute='id', **kwargs) -> list:
+    def update_by_attribute(self, obj: Union[BaseModel, dict], value, attribute='id', **kwargs) -> list:
         additional_attribute: dict = kwargs.get('additional_attributes', None)
         if additional_attribute is not None:
             if not isinstance(additional_attribute, dict):
@@ -831,13 +831,13 @@ class Service:
         db = next(self._get_db())
         return delete(db, schema=self.schema, attribute=attribute, value=value, **kwargs)
 
-    def patch(self, obj: BaseModel | dict, id_value, *args) -> list:
+    def patch(self, obj: Union[BaseModel, dict], id_value, *args) -> list:
         id_field = args[0] if args else 'id'
 
         db = next(self._get_db())
         return patch(db, schema=self.schema, data=obj, attribute=id_field, value=id_value)
 
-    def patch_by_attribute(self, obj: BaseModel | dict, value, attribute='id', **kwargs) -> list:
+    def patch_by_attribute(self, obj: Union[BaseModel, dict], value, attribute='id', **kwargs) -> list:
         additional_attribute: dict = kwargs.get('additional_attributes', None)
         if additional_attribute is not None:
             if not isinstance(additional_attribute, dict):
