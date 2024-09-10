@@ -370,7 +370,7 @@ from datetime import datetime
                          AND pg_attribute.attnum>0
                     """ % tablename)
         cs = cur.fetchall()
-        imports = "from pydantic import BaseModel"
+        imports = "from typing import Union \nfrom pydantic import BaseModel"
         class_header = "class %s(BaseModel): \n" % className
         has_date = False
         cols = ""
@@ -378,41 +378,46 @@ from datetime import datetime
         for c in cs:
             dt = c[2]
             if re.search("character varying", dt):
-                dt = "str"
+                dt = "Union[str"
             elif re.search("character", dt):
-                dt = "str"
+                dt = "Union[str"
             elif re.search("timestamp", dt) or re.search("date", dt):
-                dt = "datetime"
+                dt = "Union[datetime"
                 has_date = True
             elif re.search("integer", dt):
-                dt = "int"
+                dt = "Union[int"
             elif re.search("numeric", dt):
-                dt = "int | float"
+                dt = "Union[int, float"
             elif re.search("text", dt):
-                dt = "str"
+                dt = "Union[str"
             elif re.search("text", dt):
-                dt = "str"
+                dt = "Union[str"
             elif re.search("json", dt):
-                dt = "dict"
+                dt = "Union[dict"
             elif re.search("int", dt):
-                dt = "int"
+                dt = "Union[int"
             else:
                 dt = dt.replace(" ", "_").upper() + "()"
             if cols != "":
                 cols += "\n"
-            cols += "    %s: %s" % (c[1], dt)
+            dt_temp = "    %s: %s" % (c[1], dt)
 
             if c[8] == "p":
-                cols += " | None = None"
+                dt_temp += ", None] = None"
             elif c[8] == "f":
                 pass
                 # print(metafactory.isFk(cur, tablename, c[1]))
                 # cols += ", ForeignKey('%s')" % metafactory.isFk(cur, tablename, c[1])
             if not c[5]:
-                cols += " | None = None"
+                dt_temp += ", None] = None"
+
+            if dt_temp.find(']') == -1:
+                dt_temp += ']'
+
+            cols+=dt_temp
 
         if has_date:
-            imports = imports + "\nfrom datetime import datetime"
+            imports = "from datetime import datetime \n"+imports
         imports += "\n\n\n"
         cols = "\n    # column definitions\n" + cols + "\n"
 
