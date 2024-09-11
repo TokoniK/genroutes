@@ -1,21 +1,18 @@
 import string
 from enum import Enum
-from typing import Annotated, Union, Type, Dict
+from typing import Annotated, Union, Type
 from typing import Iterator
 
 from fastapi import APIRouter, HTTPException, Depends, Response, status, Body, Header, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
-import psycopg2
-from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import Session
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker
 from starlette.responses import JSONResponse
 
 from . import crud
-from .cli.metafactory import generate_models
-from .cli.generate import generate_routes
 
 
 class HttpMethods(Enum):
@@ -349,7 +346,10 @@ class Routes:
             # db = next(get_db())
             # return create_any(db, schema, data)
             # return service.create_any(data)
-            service.set_dbschema({None: user_schema})
+            if user_schema:
+                service.set_dbschema({None: user_schema})
+            else:
+                service.set_dbschema(None)
             return JSONResponse(jsonable_encoder(service.create_any(data), exclude=response_model_exclude))
 
         @_method_name('create_' + methodtag)
@@ -359,7 +359,10 @@ class Routes:
             # db = next(get_db())
             # return create_any(db, schema, data)
             # return service.create_any(data)
-            service.set_dbschema({None: user_schema})
+            if user_schema:
+                service.set_dbschema({None: user_schema})
+            else:
+                service.set_dbschema(None)
             return JSONResponse(jsonable_encoder(service.create_any(data), exclude=response_model_exclude))
 
         # @self.router.get("", response_model=list[schema]response_model_exclude=response_model_exclude,)
@@ -368,7 +371,10 @@ class Routes:
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return read(db, schema)
-            service.set_dbschema({None: user_schema})
+            if user_schema:
+                service.set_dbschema({None: user_schema})
+            else:
+                service.set_dbschema(None)
             return JSONResponse(jsonable_encoder(service.get_all(), exclude=response_model_exclude))
 
         @_method_name('get_' + methodtag)
@@ -379,18 +385,25 @@ class Routes:
             # return read(db, schema)
 
             # Control db schema using header value
-            # service.set_dbschema({None: user_schema})
+            # if user_schema: service.set_dbschema({None: user_schema})
             # return service.get_all()
-            service.set_dbschema({None: user_schema})
+            if user_schema:
+                service.set_dbschema({None: user_schema})
+            else:
+                service.set_dbschema(None)
             return JSONResponse(jsonable_encoder(service.get_all(), exclude=response_model_exclude))
 
         @_method_name('get_' + methodtag)
-        def get_paginated(page: Union[int, None] = None, limit: Union[int, None] = None, token=Depends(self.oauth2_scheme),
+        def get_paginated(page: Union[int, None] = None, limit: Union[int, None] = None,
+                          token=Depends(self.oauth2_scheme),
                           user_schema: Union[str, None] = Header(default=None)):
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return read(db, schema)
-            service.set_dbschema({None: user_schema})
+            if user_schema:
+                service.set_dbschema({None: user_schema})
+            else:
+                service.set_dbschema(None)
 
             if page is not None and limit is not None:
                 # return service.get_all_paginated(page, limit)
@@ -408,7 +421,10 @@ class Routes:
             # return read(db, schema)
 
             # Control db schema using header value
-            service.set_dbschema({None: user_schema})
+            if user_schema:
+                service.set_dbschema({None: user_schema})
+            else:
+                service.set_dbschema(None)
 
             if page is not None and limit is not None:
                 # return service.get_all_paginated(page, limit)
@@ -429,14 +445,17 @@ class Routes:
             param: dict = {k: v for k, v in request.query_params.items()}
             additional_attributes = {'additional_attributes': param} if param else {}
             # Control db schema using header value
-            service.set_dbschema({None: user_schema})
+            if user_schema:
+                service.set_dbschema({None: user_schema})
+            else:
+                service.set_dbschema(None)
             # return service.get_by_attribute(value, attribute, **additional_attributes)
             return JSONResponse(jsonable_encoder(service.get_by_attribute(value, attribute, **additional_attributes),
                                                  exclude=response_model_exclude))
 
-
         @_method_name('get_' + methodtag + "_by_attribute")
-        def get_by_attribute_na(attribute, value, request: Request, user_schema: Union[str, None] = Header(default=None)):
+        def get_by_attribute_na(attribute, value, request: Request,
+                                user_schema: Union[str, None] = Header(default=None)):
             """No authentication """
             # db: Session = Depends(get_db)
             # db = next(get_db())
@@ -445,14 +464,18 @@ class Routes:
             param: dict = {k: v for k, v in request.query_params.items()}
             additional_attributes = {'additional_attributes': param} if param else {}
             # Control db schema using header value
-            service.set_dbschema({None: user_schema})
+            if user_schema:
+                service.set_dbschema({None: user_schema})
+            else:
+                service.set_dbschema(None)
             # return service.get_by_attribute(value, attribute, **additional_attributes)
             return JSONResponse(jsonable_encoder(service.get_by_attribute(value, attribute, **additional_attributes),
                                                  exclude=response_model_exclude))
 
         @_method_name('get_' + methodtag + "_by_attribute")
         def get_by_attribute_paginated(attribute, value, request: Request, token=Depends(self.oauth2_scheme),
-                                       user_schema: Union[str, None] = Header(default=None), page: Union[int, None] = None,
+                                       user_schema: Union[str, None] = Header(default=None),
+                                       page: Union[int, None] = None,
                                        limit: Union[int, None] = None):
             # db: Session = Depends(get_db)
             # db = next(get_db())
@@ -461,7 +484,10 @@ class Routes:
             param: dict = {k: v for k, v in request.query_params.items()}
             additional_attributes = {'additional_attributes': param} if param else {}
             # Control db schema using header value
-            service.set_dbschema({None: user_schema})
+            if user_schema:
+                service.set_dbschema({None: user_schema})
+            else:
+                service.set_dbschema(None)
 
             if not page is None and not limit is None:
                 # return service.get_by_attribute_paginated(value, attribute, page, limit, **additional_attributes)
@@ -484,7 +510,10 @@ class Routes:
             param: dict = {k: v for k, v in request.query_params.items()}
             additional_attributes = {'additional_attributes': param} if param else {}
             # Control db schema using header value
-            service.set_dbschema({None: user_schema})
+            if user_schema:
+                service.set_dbschema({None: user_schema})
+            else:
+                service.set_dbschema(None)
 
             if not page is None and not limit is None:
                 # return service.get_by_attribute_paginated(value, attribute, page, limit, **additional_attributes)
@@ -501,11 +530,12 @@ class Routes:
             # return read_by_attribute(db, schema, id_field, value)
 
             # Control db schema using header value
-            service.set_dbschema({None: user_schema})
+            if user_schema:
+                service.set_dbschema({None: user_schema})
+            else:
+                service.set_dbschema(None)
             # return service.get_one(id, id_field)
             return JSONResponse(jsonable_encoder(service.get_one(id, id_field), exclude=response_model_exclude))
-
-
 
         @_method_name('get_' + methodtag + "_by_id")
         def get_by_id_na(id, user_schema: Union[str, None] = Header(default=None)):
@@ -515,7 +545,10 @@ class Routes:
             # return read_by_attribute(db, schema, id_field, value)
 
             # Control db schema using header value
-            service.set_dbschema({None: user_schema})
+            if user_schema:
+                service.set_dbschema({None: user_schema})
+            else:
+                service.set_dbschema(None)
             # return service.get_one(id, id_field)
             return JSONResponse(jsonable_encoder(service.get_one(id, id_field), exclude=response_model_exclude))
 
@@ -528,10 +561,12 @@ class Routes:
             # return update(db, schema, data, id_field, id_)
 
             # Control db schema using header value
-            service.set_dbschema({None: user_schema})
+            if user_schema:
+                service.set_dbschema({None: user_schema})
+            else:
+                service.set_dbschema(None)
             # return service.update(data, id, id_field)
             return JSONResponse(jsonable_encoder(service.update(data, id, id_field), exclude=response_model_exclude))
-
 
         @_method_name('update_' + methodtag)
         def update_data_na(id, data: model, user_schema: Union[str, None] = Header(default=None)):
@@ -541,10 +576,12 @@ class Routes:
             # return update(db, schema, data, id_field, id_)
 
             # Control db schema using header value
-            service.set_dbschema({None: user_schema})
+            if user_schema:
+                service.set_dbschema({None: user_schema})
+            else:
+                service.set_dbschema(None)
             # return service.update(data, id, id_field)
             return JSONResponse(jsonable_encoder(service.update(data, id, id_field), exclude=response_model_exclude))
-
 
         @_method_name('patch_' + methodtag)
         def patch_data(id, data: Union[model, Annotated[dict, Body]],
@@ -564,10 +601,12 @@ class Routes:
                                     detail='Unsupported fields found: ' + (' ,'.join(invalid)))
 
             # Control db schema using header value
-            service.set_dbschema({None: user_schema})
+            if user_schema:
+                service.set_dbschema({None: user_schema})
+            else:
+                service.set_dbschema(None)
             # return service.patch(data, id, id_field)
             return JSONResponse(jsonable_encoder(service.patch(data, id, id_field), exclude=response_model_exclude))
-
 
         @_method_name('patch_' + methodtag)
         def patch_data_na(id, data: Union[model, Annotated[dict, Body]],
@@ -588,10 +627,12 @@ class Routes:
             # return patch(db, schema, data, id_field, id_)
 
             # Control db schema using header value
-            service.set_dbschema({None: user_schema})
+            if user_schema:
+                service.set_dbschema({None: user_schema})
+            else:
+                service.set_dbschema(None)
             # return service.patch(data, id, id_field)
             return JSONResponse(jsonable_encoder(service.patch(data, id, id_field), exclude=response_model_exclude))
-
 
         # @self.router.delete("/{id}")
         @_method_name('delete_' + methodtag)
@@ -602,7 +643,10 @@ class Routes:
             # return delete(db, schema, id_field, id_)
 
             # Control db schema using header value
-            service.set_dbschema({None: user_schema})
+            if user_schema:
+                service.set_dbschema({None: user_schema})
+            else:
+                service.set_dbschema(None)
             # return service.delete(id, id_field)
             return JSONResponse(jsonable_encoder(service.delete(id, id_field), exclude=response_model_exclude))
 
@@ -614,10 +658,12 @@ class Routes:
             # return delete(db, schema, id_field, id_)
 
             # Control db schema using header value
-            service.set_dbschema({None: user_schema})
+            if user_schema:
+                service.set_dbschema({None: user_schema})
+            else:
+                service.set_dbschema(None)
             # return service.delete(id, id_field)
             return JSONResponse(jsonable_encoder(service.delete(id, id_field), exclude=response_model_exclude))
-
 
         # endregion crud_methods
 
@@ -723,8 +769,9 @@ class Service:
         self.db_schema = None
         with self.session() as s:
             self.engine = s.get_bind()
+            self.base_execution_options = {**self.engine.get_execution_options()}
 
-    def set_dbschema(self, dbschema: dict[Union[str, None], str]):
+    def set_dbschema(self, dbschema: Union[dict[Union[str, None], str],None]):
         self.db_schema = dbschema
 
     # def get_engine(self):
@@ -750,7 +797,7 @@ class Service:
             self.session.configure(bind=e)
         else:
             # engine = next(self.get_engine())
-            e = self.engine.execution_options(schema_translate_map={None: "public"})
+            e = self.engine.execution_options(**self.base_execution_options)
             self.session.configure(bind=e)
 
         db = self.session()
@@ -790,7 +837,8 @@ class Service:
         return read_by_attribute(db, schema=self.schema, attribute=attribute, value=value,
                                  **kwargs)
 
-    def get_by_attribute_paginated(self, value, attribute, page: int, limit: int, **kwargs) -> dict[str, Union[list, int]]:
+    def get_by_attribute_paginated(self, value, attribute, page: int, limit: int, **kwargs) -> dict[
+        str, Union[list, int]]:
         additional_attribute: dict = kwargs.get('additional_attributes', None)
         if additional_attribute is not None:
             if not isinstance(additional_attribute, dict):
