@@ -304,7 +304,7 @@ from datetime import datetime
     @staticmethod
     def forein_keys(cur, tablename, many_to_one=False):
         cur.execute("""
-            SELECT pg_constraint.conname  as fkname, pga2.attname as colname, pc2.relname as referenced_table_name, pga1.attname as referenced_column_name
+            SELECT distinct pg_constraint.conname  as fkname, pga2.attname as colname, pc2.relname as referenced_table_name, pga1.attname as referenced_column_name
             FROM pg_class pc1, pg_class pc2, pg_constraint, pg_attribute pga1, pg_attribute pga2
             WHERE pg_constraint.conrelid = pc1.oid
             AND pc2.oid = pg_constraint.confrelid

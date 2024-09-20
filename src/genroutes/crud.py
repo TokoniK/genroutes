@@ -9,6 +9,7 @@ from sqlalchemy import func, VARCHAR, TEXT, CHAR, NVARCHAR
 
 from sqlalchemy.inspection import inspect
 import base64
+import uuid
 
 
 def is_compound_object(attribute):
@@ -16,7 +17,7 @@ def is_compound_object(attribute):
         int, float, str, bool, list, tuple, dict, set, frozenset, bytes, bytearray, memoryview, type(None),
         types.FunctionType, types.BuiltinFunctionType, types.MethodType, types.ModuleType, datetime.date,
         datetime.datetime,
-        decimal.Decimal)
+        decimal.Decimal,uuid.UUID)
     return not isinstance(attribute, built_in_types) and hasattr(attribute, '__class__')
 
 
