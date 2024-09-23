@@ -396,8 +396,12 @@ from datetime import datetime
                 dt = "Union[dict"
             elif re.search("int", dt):
                 dt = "Union[int"
+            elif re.search("real", dt):
+                dt = "Union[float"
+            elif re.search("uuid", dt):
+                dt = "Union[str"
             else:
-                dt = dt.replace(" ", "_").upper() + "()"
+                dt = "Union["+dt.replace(" ", "_").upper() + "()"
             if cols != "":
                 cols += "\n"
             dt_temp = "    %s: %s" % (c[1], dt)
@@ -476,6 +480,9 @@ from datetime import datetime
             elif re.search("numeric", dt):
                 dt = "NUMERIC()"
                 pt = "Mapped[int]"
+            elif re.search("uuid", dt):
+                dt = "UUID()"
+                pt = "Mapped[str]"
             else:
                 # print('xxxxxxxxxxxx ' + dt)
                 dt = dt.replace(" ", "_").upper() + "()"
