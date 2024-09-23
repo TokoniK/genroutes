@@ -81,6 +81,10 @@ def generate_models(database, username, hostname, port, password, schemaname, fu
 class metafactory:
     @staticmethod
     def tables(cur, schema="public", full=False):
+
+        schema_id = metafactory.schema_oid(cur,schema)
+
+
         cur.execute("""SELECT * FROM  pg_tables WHERE schemaname = '%s'""" % schema)
         ts = cur.fetchall()
         models = ""
@@ -100,8 +104,8 @@ class metafactory:
             className = metafactory.buildClassName(tableName)  # ''.join(names)
             # className = tableName.replace('_', '')
             # colums = metafactory.colums(cur, tableName)
-            colums = metafactory.colums_new(cur, tableName)
-            br = metafactory.br(cur, t[1])
+            colums = metafactory.colums_new(cur, tableName, schema_id)
+            br = metafactory.br(cur, t[1], schema_id)
             print(className)
             singularClassName = p.singular_noun(className) if p.singular_noun(className) else className
             fileName = p.singular_noun(tableName) if p.singular_noun(tableName) else tableName
@@ -109,7 +113,7 @@ class metafactory:
             # classes += "class %s(DatabaseTable):\n    __tablename__ = u'%s'%s%s\n\n%s" % (className, tableName, colums, br, metafactory.toJsonMethod(cur, t[1]))
             model_class = "class %s(DatabaseTable):\n    __tablename__ = u'%s'%s%s\n\n%s\n" % (
                 singularClassName, tableName, colums, br,
-                metafactory.toJsonMethodNew(cur, t[1])  if full else metafactory.toJsonMethod(cur, t[1]) )
+                metafactory.toJsonMethodNew(cur, t[1], schema_id)  if full else metafactory.toJsonMethod(cur, t[1], schema_id) )
             print(model_class)
 
             # file_path = os.path.abspath(schemas_path + '/%s.py' % singularClassName.lower())
@@ -152,7 +156,7 @@ from datetime import datetime
 
             with open(file_path, "w", encoding='utf-8') as file:
                 print('build model class ' + tableName)
-                file.write(metafactory.buildModel(cur, tableName, singularClassName))
+                file.write(metafactory.buildModel(cur, tableName, singularClassName, schema_id))
 
             file_path = os.path.abspath(models_path + '/__init__.py')
             with open(file_path, "a", encoding='utf-8') as file:
@@ -251,8 +255,8 @@ from datetime import datetime
         return cols
 
     @staticmethod
-    def isFk(cur, tablename, column):
-        fks = metafactory.forein_keys(cur, tablename)
+    def isFk(cur, tablename, column, schema_id):
+        fks = metafactory.forein_keys(cur, tablename, schema_id)
         for c in fks:
             if c[1] == column:
                 return "%s.%s" % (c[2], c[3])
@@ -260,8 +264,8 @@ from datetime import datetime
             return Null
 
     @staticmethod
-    def fk(cur, tablename, schema="public"):
-        fks = metafactory.forein_keys(cur, tablename)
+    def fk(cur, tablename, schema_id, schema="public"):
+        fks = metafactory.forein_keys(cur, tablename, schema_id)
         foreignkeys = ""
         for f in fks:
             if foreignkeys != "":
@@ -273,8 +277,8 @@ from datetime import datetime
 
         return foreignkeys
 
-    def br(cur, tablename):
-        fks = metafactory.forein_keys(cur, tablename)
+    def br(cur, tablename, schema_id):
+        fks = metafactory.forein_keys(cur, tablename, schema_id)
         p = inflect.engine()
 
         foreignkeys = ""
@@ -302,7 +306,7 @@ from datetime import datetime
         return foreignkeys
 
     @staticmethod
-    def forein_keys(cur, tablename, many_to_one=False):
+    def forein_keys(cur, tablename, schema_id, many_to_one=False):
         cur.execute("""
             SELECT distinct pg_constraint.conname  as fkname, pga2.attname as colname, pc2.relname as referenced_table_name, pga1.attname as referenced_column_name
             FROM pg_class pc1, pg_class pc2, pg_constraint, pg_attribute pga1, pg_attribute pga2
@@ -313,11 +317,13 @@ from datetime import datetime
             AND pga2.attnum = pg_constraint.conkey[1]
             AND pga2.attrelid = pc1.oid
             AND pc1.relname = '%s'
-        """ % tablename)
+            and pc1.relnamespace = pc2.relnamespace
+            and pc1.relnamespace = '%s'
+        """ % (tablename, schema_id))
         return cur.fetchall()
 
     @staticmethod
-    def toJsonMethod(cur, tablename):
+    def toJsonMethod(cur, tablename, schema_id):
         metod = "    def to_json(self):\n        obj = {"
         cur.execute("""
                         SELECT DISTINCT ON (attnum) pg_attribute.attnum,pg_attribute.attname as column_name,
@@ -336,8 +342,9 @@ from datetime import datetime
                           LEFT OUTER JOIN pg_index ON (pg_class.oid = pg_index.indrelid AND pg_attribute.attnum = any(pg_index.indkey))
                           LEFT OUTER JOIN pg_constraint ON (pg_constraint.conrelid = pg_class.oid AND pg_constraint.conkey[1]= pg_attribute.attnum)
                          WHERE pg_class.relname = '%s'
+                         and relnamespace = '%s'
                          AND pg_attribute.attnum>0
-                    """ % tablename)
+                    """ % (tablename, schema_id))
         cs = cur.fetchall()
         for c in cs:
             if re.search("timestamp", c[2]):
@@ -348,7 +355,7 @@ from datetime import datetime
         metod += "\n        }\n        return obj  # return json.dumps(obj)"
         return metod
 
-    def buildModel(cur, tablename, className):
+    def buildModel(cur, tablename, className, schema_id):
         print(cur, tablename)
         cur.execute("""
                         SELECT DISTINCT ON (attnum) pg_attribute.attnum,pg_attribute.attname as column_name,
@@ -367,8 +374,9 @@ from datetime import datetime
                           LEFT OUTER JOIN pg_index ON (pg_class.oid = pg_index.indrelid AND pg_attribute.attnum = any(pg_index.indkey))
                           LEFT OUTER JOIN pg_constraint ON (pg_constraint.conrelid = pg_class.oid AND pg_constraint.conkey[1]= pg_attribute.attnum)
                          WHERE pg_class.relname = '%s'
+                         and relnamespace = '%s'
                          AND pg_attribute.attnum>0
-                    """ % tablename)
+                    """ % (tablename, schema_id))
         cs = cur.fetchall()
         imports = "from typing import Union \nfrom pydantic import BaseModel"
         class_header = "class %s(BaseModel): \n" % className
@@ -427,9 +435,18 @@ from datetime import datetime
 
         return imports + class_header + cols
 
+    @staticmethod
+    def schema_oid(cur, schema_name):
+        cur.execute("select oid from pg_namespace where nspname = '%s' " % schema_name)
+        cs = cur.fetchall()
+        oid=""
+        for c in cs:
+            oid = c[0]
+
+        return oid
 
     @staticmethod
-    def colums_new(cur, tablename):
+    def colums_new(cur, tablename, schema_id):
         print(cur, tablename)
         cur.execute("""
                         SELECT DISTINCT ON (attnum) pg_attribute.attnum,pg_attribute.attname as column_name,
@@ -450,8 +467,9 @@ from datetime import datetime
                           LEFT OUTER JOIN pg_index ON (pg_class.oid = pg_index.indrelid AND pg_attribute.attnum = any(pg_index.indkey))
                           LEFT OUTER JOIN (select * from pg_constraint order by contype desc) pg_constraint ON (pg_constraint.conrelid = pg_class.oid AND pg_constraint.conkey[1]= pg_attribute.attnum)
                          WHERE pg_class.relname = '%s'
+                         and relnamespace = '%s'
                          AND pg_attribute.attnum>0
-                    """ % tablename)
+                    """ % (tablename, schema_id) )
         cs = cur.fetchall()
         cols = ""
         for c in cs:
@@ -504,14 +522,14 @@ from datetime import datetime
             elif c[8] == "f":
                 # pass
                 print('fk.....', c[1])
-                cols += ", ForeignKey('%s')" % metafactory.isFk(cur, tablename, c[1])
+                cols += ", ForeignKey('%s')" % metafactory.isFk(cur, tablename, c[1], schema_id)
             if c[5]:
                 cols += ", nullable=False"
             cols += ")"
         cols = "\n\n    # column definitions\n" + cols
         return cols
 
-    def toJsonMethodNew(cur, tablename):
+    def toJsonMethodNew(cur, tablename, schema_id):
         metod = "    def to_json(self):\n        obj = {"
         cur.execute("""
                         SELECT DISTINCT ON (attnum) pg_attribute.attnum,pg_attribute.attname as column_name,
@@ -530,8 +548,9 @@ from datetime import datetime
                           LEFT OUTER JOIN pg_index ON (pg_class.oid = pg_index.indrelid AND pg_attribute.attnum = any(pg_index.indkey))
                           LEFT OUTER JOIN pg_constraint ON (pg_constraint.conrelid = pg_class.oid AND pg_constraint.conkey[1]= pg_attribute.attnum)
                          WHERE pg_class.relname = '%s'
+                         and relnamespace = '%s'
                          AND pg_attribute.attnum>0
-                    """ % tablename)
+                    """ % (tablename, schema_id))
         cs = cur.fetchall()
         for c in cs:
             if re.search("timestamp", c[2]):
