@@ -146,10 +146,10 @@ def delete(db: Session, schema, attribute, value, **kwargs):
     return {"message": msg}
 
 
-def read(db: Session, schema):
+def read(db: Session, schema, deep=False):
     """Read all records of model from datasource"""
     try:
-        obj = crud.get_all(db, schema)
+        obj = crud.get_all(db, schema, deep=deep)
     except BaseException as ex:
         raise HTTPException(status_code=400, detail=str(ex.orig))
     # print(obj)
@@ -157,10 +157,10 @@ def read(db: Session, schema):
     return obj
 
 
-def read_paginated(db: Session, schema, page: int, limit: int):
+def read_paginated(db: Session, schema, page: int, limit: int, deep=False):
     """Read all records of model from datasource"""
     try:
-        obj = crud.get_all_paginated(db, schema, page, limit)
+        obj = crud.get_all_paginated(db, schema, page, limit, deep=deep)
     except BaseException as ex:
         raise HTTPException(status_code=400, detail=str(ex.orig))
     # print(obj)
@@ -168,7 +168,7 @@ def read_paginated(db: Session, schema, page: int, limit: int):
     return obj
 
 
-def read_by_attribute(db: Session, schema, attribute, value, **kwargs):
+def read_by_attribute(db: Session, schema, attribute, value, deep=False,**kwargs):
     """Read records of model from datasource filtered by 'attribute = value' """
     additional_attribute: dict = kwargs.get('additional_attributes', None)
     if additional_attribute is not None:
@@ -176,24 +176,24 @@ def read_by_attribute(db: Session, schema, attribute, value, **kwargs):
             raise Exception("Arguments must be of type dict")
 
     try:
-        obj = crud.get_by_attribute(db, schema, attribute, value, **kwargs)
+        obj = crud.get_by_attribute(db, schema, attribute, value, deep=deep,**kwargs)
     except BaseException as ex:
         raise HTTPException(status_code=400, detail=str(ex.orig))
     db.close()
     return obj
 
 
-def read_by_id(db: Session, schema, id_field, value):
+def read_by_id(db: Session, schema, id_field, value, deep=True):
     """Read records of model from datasource filtered by 'attribute = value' """
     try:
-        obj = crud.get_by_id(db, schema, id_field, value)
+        obj = crud.get_by_id(db, schema, id_field, value, deep=deep)
     except BaseException as ex:
         raise HTTPException(status_code=400, detail=str(ex.orig))
     db.close()
     return obj
 
 
-def read_by_attribute_paginated(db: Session, schema, attribute, value, page, limit, **kwargs):
+def read_by_attribute_paginated(db: Session, schema, attribute, value, page, limit, deep=False, **kwargs):
     """Read records of model from datasource filtered by 'attribute = value' """
     additional_attribute: dict = kwargs.get('additional_attributes', None)
     if additional_attribute is not None:
@@ -201,7 +201,7 @@ def read_by_attribute_paginated(db: Session, schema, attribute, value, page, lim
             raise Exception("Arguments must be of type dict")
 
     try:
-        obj = crud.get_by_attribute_paginated(db, schema, attribute, value, page, limit, **kwargs)
+        obj = crud.get_by_attribute_paginated(db, schema, attribute, value, page, limit, deep=deep, **kwargs)
     except BaseException as ex:
         raise HTTPException(status_code=400, detail=str(ex.orig))
     db.close()
@@ -366,37 +366,12 @@ class Routes:
             return JSONResponse(jsonable_encoder(service.create_any(data), exclude=response_model_exclude))
 
         # @self.router.get("", response_model=list[schema]response_model_exclude=response_model_exclude,)
-        @_method_name('get_' + methodtag)
-        def get(token=Depends(self.oauth2_scheme), user_schema: Union[str, None] = Header(default=None)):
-            # db: Session = Depends(get_db)
-            # db = next(get_db())
-            # return read(db, schema)
-            if user_schema:
-                service.set_dbschema({None: user_schema})
-            else:
-                service.set_dbschema(None)
-            return JSONResponse(jsonable_encoder(service.get_all(), exclude=response_model_exclude))
-
-        @_method_name('get_' + methodtag)
-        def get_na(user_schema: Union[str, None] = Header(default=None)):
-            """No authentication """
-            # db: Session = Depends(get_db)
-            # db = next(get_db())
-            # return read(db, schema)
-
-            # Control db schema using header value
-            # if user_schema: service.set_dbschema({None: user_schema})
-            # return service.get_all()
-            if user_schema:
-                service.set_dbschema({None: user_schema})
-            else:
-                service.set_dbschema(None)
-            return JSONResponse(jsonable_encoder(service.get_all(), exclude=response_model_exclude))
 
         @_method_name('get_' + methodtag)
         def get_paginated(page: Union[int, None] = None, limit: Union[int, None] = None,
                           token=Depends(self.oauth2_scheme),
-                          user_schema: Union[str, None] = Header(default=None)):
+                          user_schema: Union[str, None] = Header(default=None),
+                          deep: Union[bool, None] = False):
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return read(db, schema)
@@ -407,14 +382,15 @@ class Routes:
 
             if page is not None and limit is not None:
                 # return service.get_all_paginated(page, limit)
-                return JSONResponse(jsonable_encoder(service.get_all_paginated(page, limit),
+                return JSONResponse(jsonable_encoder(service.get_all_paginated(page, limit, deep=deep),
                                                      exclude=response_model_exclude))
             # return service.get_all()
-            return JSONResponse(jsonable_encoder(service.get_all(), exclude=response_model_exclude))
+            return JSONResponse(jsonable_encoder(service.get_all(deep=deep), exclude=response_model_exclude))
 
         @_method_name('get_' + methodtag)
         def get_paginated_na(page: Union[int, None] = None, limit: Union[int, None] = None,
-                             user_schema: Union[str, None] = Header(default=None)):
+                             user_schema: Union[str, None] = Header(default=None),
+                             deep: Union[bool, None] = False):
             """No authentication """
             # db: Session = Depends(get_db)
             # db = next(get_db())
@@ -428,55 +404,20 @@ class Routes:
 
             if page is not None and limit is not None:
                 # return service.get_all_paginated(page, limit)
-                return JSONResponse(jsonable_encoder(service.get_all_paginated(page, limit),
+                return JSONResponse(jsonable_encoder(service.get_all_paginated(page, limit, deep=deep),
                                                      exclude=response_model_exclude))
             # return service.get_all()
-            return JSONResponse(jsonable_encoder(service.get_all(), exclude=response_model_exclude))
+            return JSONResponse(jsonable_encoder(service.get_all(deep=deep), exclude=response_model_exclude))
 
         # @self.router.get("/{attribute}/{value}", response_model=list[schema]
         #                   response_model_exclude=response_model_exclude,)
-        @_method_name('get_' + methodtag + "_by_attribute")
-        def get_by_attribute(attribute, value, request: Request, token=Depends(self.oauth2_scheme),
-                             user_schema: Union[str, None] = Header(default=None)):
-            # db: Session = Depends(get_db)
-            # db = next(get_db())
-            # return read_by_attribute(db, schema, attribute, value)
-
-            param: dict = {k: v for k, v in request.query_params.items()}
-            additional_attributes = {'additional_attributes': param} if param else {}
-            # Control db schema using header value
-            if user_schema:
-                service.set_dbschema({None: user_schema})
-            else:
-                service.set_dbschema(None)
-            # return service.get_by_attribute(value, attribute, **additional_attributes)
-            return JSONResponse(jsonable_encoder(service.get_by_attribute(value, attribute, **additional_attributes),
-                                                 exclude=response_model_exclude))
-
-        @_method_name('get_' + methodtag + "_by_attribute")
-        def get_by_attribute_na(attribute, value, request: Request,
-                                user_schema: Union[str, None] = Header(default=None)):
-            """No authentication """
-            # db: Session = Depends(get_db)
-            # db = next(get_db())
-            # return read_by_attribute(db, schema, attribute, value)
-
-            param: dict = {k: v for k, v in request.query_params.items()}
-            additional_attributes = {'additional_attributes': param} if param else {}
-            # Control db schema using header value
-            if user_schema:
-                service.set_dbschema({None: user_schema})
-            else:
-                service.set_dbschema(None)
-            # return service.get_by_attribute(value, attribute, **additional_attributes)
-            return JSONResponse(jsonable_encoder(service.get_by_attribute(value, attribute, **additional_attributes),
-                                                 exclude=response_model_exclude))
 
         @_method_name('get_' + methodtag + "_by_attribute")
         def get_by_attribute_paginated(attribute, value, request: Request, token=Depends(self.oauth2_scheme),
                                        user_schema: Union[str, None] = Header(default=None),
                                        page: Union[int, None] = None,
-                                       limit: Union[int, None] = None):
+                                       limit: Union[int, None] = None,
+                                       deep: Union[bool, None] = False):
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return read_by_attribute(db, schema, attribute, value)
@@ -492,16 +433,17 @@ class Routes:
             if not page is None and not limit is None:
                 # return service.get_by_attribute_paginated(value, attribute, page, limit, **additional_attributes)
                 return JSONResponse(jsonable_encoder(service.get_by_attribute_paginated(
-                    value, attribute, page, limit, **additional_attributes), exclude=response_model_exclude))
+                    value, attribute, page, limit, deep=deep,**additional_attributes), exclude=response_model_exclude))
             # return service.get_by_attribute(value, attribute, **additional_attributes)
-            return JSONResponse(jsonable_encoder(service.get_by_attribute(value, attribute, **additional_attributes),
+            return JSONResponse(jsonable_encoder(service.get_by_attribute(value, attribute,deep=deep **additional_attributes),
                                                  exclude=response_model_exclude))
 
         @_method_name('get_' + methodtag + "_by_attribute")
         def get_by_attribute_paginated_na(attribute, value
                                           , request: Request
                                           , user_schema: Union[str, None] = Header(default=None)
-                                          , page: Union[int, None] = None, limit: Union[int, None] = None):
+                                          , page: Union[int, None] = None, limit: Union[int, None] = None
+                                          , deep: Union[bool, None] = False):
             """No authentication """
             # db: Session = Depends(get_db)
             # db = next(get_db())
@@ -518,13 +460,14 @@ class Routes:
             if not page is None and not limit is None:
                 # return service.get_by_attribute_paginated(value, attribute, page, limit, **additional_attributes)
                 return JSONResponse(jsonable_encoder(service.get_by_attribute_paginated(
-                    value, attribute, page, limit, **additional_attributes), exclude=response_model_exclude))
+                    value, attribute, page, limit, deep=deep, **additional_attributes), exclude=response_model_exclude))
             # return service.get_by_attribute(value, attribute, **additional_attributes)
-            return JSONResponse(jsonable_encoder(service.get_by_attribute(value, attribute, **additional_attributes),
+            return JSONResponse(jsonable_encoder(service.get_by_attribute(value, attribute, deep=deep, **additional_attributes),
                                                  exclude=response_model_exclude))
 
         @_method_name('get_' + methodtag + "_by_id")
-        def get_by_id(id, token=Depends(self.oauth2_scheme), user_schema: Union[str, None] = Header(default=None)):
+        def get_by_id(id, token=Depends(self.oauth2_scheme), user_schema: Union[str, None] = Header(default=None),
+                      deep: Union[bool, None] = True):
             # db: Session = Depends(get_db)
             # db = next(get_db())
             # return read_by_attribute(db, schema, id_field, value)
@@ -535,10 +478,11 @@ class Routes:
             else:
                 service.set_dbschema(None)
             # return service.get_one(id, id_field)
-            return JSONResponse(jsonable_encoder(service.get_one(id, id_field), exclude=response_model_exclude))
+            return JSONResponse(jsonable_encoder(service.get_one(id, id_field, deep=deep), exclude=response_model_exclude))
 
         @_method_name('get_' + methodtag + "_by_id")
-        def get_by_id_na(id, user_schema: Union[str, None] = Header(default=None)):
+        def get_by_id_na(id, user_schema: Union[str, None] = Header(default=None),
+                         deep: Union[bool, None] = True):
             """No authentication """
             # db: Session = Depends(get_db)
             # db = next(get_db())
@@ -550,7 +494,7 @@ class Routes:
             else:
                 service.set_dbschema(None)
             # return service.get_one(id, id_field)
-            return JSONResponse(jsonable_encoder(service.get_one(id, id_field), exclude=response_model_exclude))
+            return JSONResponse(jsonable_encoder(service.get_one(id, id_field, deep=deep), exclude=response_model_exclude))
 
         # @self.router.put("/{id}", response_model=schemaresponse_model_exclude=response_model_exclude,)
         @_method_name('update_' + methodtag)
@@ -814,30 +758,30 @@ class Service:
         db = next(self._get_db())
         return create(db, schema=self.schema, key_attribute=key_attribute, data=obj, *args)
 
-    def get_all(self) -> list:
+    def get_all(self, deep=False) -> list:
         db = next(self._get_db())
-        return read(db, schema=self.schema)
+        return read(db, deep=deep, schema=self.schema)
 
-    def get_all_paginated(self, page, limit) -> dict[str, Union[list, int]]:
+    def get_all_paginated(self, page, limit, deep=False) -> dict[str, Union[list, int]]:
         db = next(self._get_db())
-        return read_paginated(db, page=page, limit=limit, schema=self.schema)
+        return read_paginated(db, page=page, limit=limit, deep=deep, schema=self.schema)
 
-    def get_one(self, id_value, id_field='id') -> Union[dict, None]:
+    def get_one(self, id_value, id_field='id', deep=True) -> Union[dict, None]:
 
         db = next(self._get_db())
-        return read_by_id(db, schema=self.schema, id_field=id_field, value=id_value)
+        return read_by_id(db, schema=self.schema, id_field=id_field, value=id_value, deep=deep)
 
-    def get_by_attribute(self, value, attribute, **kwargs) -> list:
+    def get_by_attribute(self, value, attribute, deep=False, **kwargs) -> list:
         additional_attribute: dict = kwargs.get('additional_attributes', None)
         if additional_attribute is not None:
             if not isinstance(additional_attribute, dict):
                 raise Exception("Arguments must be of type dict")
 
         db = next(self._get_db())
-        return read_by_attribute(db, schema=self.schema, attribute=attribute, value=value,
+        return read_by_attribute(db, schema=self.schema, attribute=attribute, value=value,deep=deep,
                                  **kwargs)
 
-    def get_by_attribute_paginated(self, value, attribute, page: int, limit: int, **kwargs) -> dict[
+    def get_by_attribute_paginated(self, value, attribute, page: int, limit: int, deep = False, **kwargs) -> dict[
         str, Union[list, int]]:
         additional_attribute: dict = kwargs.get('additional_attributes', None)
         if additional_attribute is not None:
@@ -846,7 +790,7 @@ class Service:
 
         db = next(self._get_db())
         return read_by_attribute_paginated(db, schema=self.schema, attribute=attribute, value=value, page=page
-                                           , limit=limit
+                                           , limit=limit, deep=deep
                                            , **kwargs)
 
     def update(self, obj: Union[BaseModel, dict], id_value, *args) -> list:
