@@ -422,7 +422,7 @@ class Routes:
             # db = next(get_db())
             # return read_by_attribute(db, schema, attribute, value)
 
-            param: dict = {k: v for k, v in request.query_params.items()}
+            param: dict = {k: v for k, v in request.query_params.items() if k not in ['page','limit','deep']}
             additional_attributes = {'additional_attributes': param} if param else {}
             # Control db schema using header value
             if user_schema:
@@ -449,7 +449,7 @@ class Routes:
             # db = next(get_db())
             # return read_by_attribute(db, schema, attribute, value)
 
-            param: dict = {k: v for k, v in request.query_params.items()}
+            param: dict = {k: v for k, v in request.query_params.items() if k not in ['page','limit','deep']}
             additional_attributes = {'additional_attributes': param} if param else {}
             # Control db schema using header value
             if user_schema:

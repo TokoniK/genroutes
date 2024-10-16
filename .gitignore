@@ -1,7 +1,7 @@
 .idea/
 __pycache__/
 dist/
-main.py
+/main.py
 src/genroutes/__pycache__
 *.pyc
 .pytest_cache/
