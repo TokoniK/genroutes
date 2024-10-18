@@ -40,7 +40,7 @@ def generate_routes(schema, model):
         file.write(init)
         file.write('# verify id_field param of routes.get_router\n\n')
         for f in files:
-            if f.endswith('.py') and not f.startswith('__'):
+            if f.endswith('.py') and not f.startswith('_'):
                 # print(f[0].upper()+f[1:-3])
                 clsName = f[0].upper()+f[1:-3]
                 names = clsName.split('_')
