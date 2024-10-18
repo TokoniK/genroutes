@@ -198,7 +198,8 @@ from datetime import datetime
                            pg_attribute.attnotnull as is_notnull,
                            pg_attribute.atthasdef as has_default,
                            --adsrc as default_value,
-                           '' as default_value,
+                           --'' as default_value,
+                           pg_get_expr(pg_attrdef.adbin, pg_attrdef.adrelid) as default_value,
                            pg_constraint.contype,
                            pg_attribute.attidentity identity_type
 
@@ -225,7 +226,7 @@ from datetime import datetime
             elif re.search("timestamp", dt):
                 dt = "TIMESTAMP()"
             elif re.search("date", dt) or re.search("datetime", dt):
-                dt = "DATETIME()"
+                dt = "DATE()"
             elif re.search("bigint", dt):
                 dt = "BIGINT"
             else:
@@ -332,7 +333,8 @@ from datetime import datetime
                            pg_attribute.attnotnull as is_notnull,
                            pg_attribute.atthasdef as has_default,
                            --adsrc as default_value,
-                           '' as default_value,
+                           --'' as default_value,
+                           pg_get_expr(pg_attrdef.adbin, pg_attrdef.adrelid) as default_value,
                            pg_constraint.contype
                         FROM
                           pg_attribute
@@ -364,7 +366,8 @@ from datetime import datetime
                            pg_attribute.attnotnull as is_notnull,
                            pg_attribute.atthasdef as has_default,
                            --adsrc as default_value,
-                           '' as default_value,
+                           --'' as default_value,
+                           pg_get_expr(pg_attrdef.adbin, pg_attrdef.adrelid) as default_value,
                            pg_constraint.contype
                         FROM
                           pg_attribute
@@ -404,8 +407,14 @@ from datetime import datetime
                 dt = "Union[dict"
             elif re.search("int", dt):
                 dt = "Union[int"
-            elif re.search("real", dt):
+            elif re.search("real", dt) or re.search("money", dt) :
                 dt = "Union[float"
+            elif re.search("boolean", dt):
+                dt = "Union[bool"
+            elif re.search("bytea", dt):
+                dt = "Union[bytes"
+            elif re.search("jsonb", dt):
+                dt = "Union[dict"
             elif re.search("uuid", dt):
                 dt = "Union[str"
             else:
@@ -455,7 +464,8 @@ from datetime import datetime
                            pg_attribute.attnotnull as is_notnull,
                            pg_attribute.atthasdef as has_default,
                            --adsrc as default_value,
-                           '' as default_value,
+                           --'' as default_value,
+                           pg_get_expr(pg_attrdef.adbin, pg_attrdef.adrelid) as default_value,
                            pg_constraint.contype,
                            pg_attribute.attidentity identity_type
 
@@ -489,7 +499,7 @@ from datetime import datetime
                 pt = "Mapped[datetime]"
 
             elif re.search("date", dt) or re.search("datetime", dt):
-                dt = "DATETIME()"
+                dt = "DATE()"
                 pt = "Mapped[datetime]"
 
             elif re.search("bigint", dt):
@@ -538,7 +548,8 @@ from datetime import datetime
                            pg_attribute.attnotnull as is_notnull,
                            pg_attribute.atthasdef as has_default,
                            --adsrc as default_value,
-                           '' as default_value,
+                           --'' as default_value,
+                           pg_get_expr(pg_attrdef.adbin, pg_attrdef.adrelid) as default_value,
                            pg_constraint.contype
                         FROM
                           pg_attribute
