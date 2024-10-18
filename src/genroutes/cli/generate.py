@@ -1,7 +1,7 @@
 import os
 
 
-def generate_routes(schema, model):
+def generate_routes(schema, model, id):
     schema_pkg = schema.replace('/', '.')
     model_pkg = model.replace('/', '.')
 
@@ -46,8 +46,12 @@ def generate_routes(schema, model):
                 names = clsName.split('_')
                 names = [f[0].upper()+f[1:] for f in names]
                 clsName = ''.join(names)
-                router_declare = "app.include_router(routes.get_router('%s', schemas.%s, models.%s, models.%s))\n" \
-                                 % (f[0:-3], clsName, clsName, clsName)
+                if not id:
+                    router_declare = "app.include_router(routes.get_router('%s', schemas.%s, models.%s, models.%s))\n" \
+                                     % (f[0:-3], clsName, clsName, clsName)
+                else:
+                    router_declare = "app.include_router(routes.get_router('%s', schemas.%s, models.%s, models.%s, id_field='%s'))\n" \
+                                     % (f[0:-3], clsName, clsName, clsName, f[0:-3]+"_id")
                 file.write(router_declare)
                 print(router_declare)
         file.write('# end\n\n')
