@@ -17,6 +17,8 @@ def main():
     # parser_generate.add_argument('arg1', type=str, help='Argument 1 for script 1')
     parser_generate.add_argument("-schemadir", "--schema", help="database schema directory", dest="schema")
     parser_generate.add_argument("-modeldir", "--model", help="pydantic model directory", dest="model")
+    parser_generate.add_argument("-idfields", "--id", help="include id fields per schema object", dest="id" )
+
 
     parser_models = subparsers.add_parser('models', help='Generate sqlalchemy schemas and models')
     # parser_models.add_argument('arg1', type=int, help='Argument 1 for script 2')
@@ -38,7 +40,8 @@ def main():
             print('include args -schema & -model')
             return
 
-        generate_routes(args.schema, args.model)
+        id = True if args.id else False
+        generate_routes(args.schema, args.model,id)
 
     elif args.command == 'models':
         # full = False
